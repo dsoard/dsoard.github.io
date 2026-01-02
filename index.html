@@ -1,41 +1,36 @@
-
-  <title>Enter the Portal</title>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>David Soard Portal</title>
   <link rel="stylesheet" href="/css/style.css">
-<script src="/js/script.js"></script>
-
+  <script src="/js/script.js" defer></script>
 </head>
-<body>
 
-<header id="site-header">
-  <h1>David Soard</h1>
+<body class="landing">
+<div id="landing-container">
+<nav id="main-nav">
+  <a href="/">Home</a>
+  <a href="/business/">Business</a>
+  <a href="/music/">Music & Entertainment</a>
+  <a href="/personal/">Personal</a>
+</nav>
+
+<header>
+  <h1>Welcome!</h1>
   <p>What brings you here?</p>
 </header>
 
-<div id="initial-buttons">
+<div id="portal-buttons">
   <a href="/business/" class="portal-btn">Business</a>
   <a href="/music/" class="portal-btn">Music & Entertainment</a>
   <a href="/personal/" class="portal-btn">Personal</a>
 </div>
-
-
-<nav id="main-nav">
-  <button onclick="activateSection('business')">Business</button>
-  <button onclick="activateSection('music')">Music & Entertainment</button>
-  <button onclick="activateSection('personal')">Personal</button>
-  <button onclick="goHome()">Back to Home</button>
-</nav>
-
-
-
-
-
-
-
+</div>
 <footer>
   &copy; 2025 David Soard. All rights reserved.
 </footer>
-
-
 </body>
 </html>
 
