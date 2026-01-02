@@ -1,0 +1,158 @@
+:root {
+      --bg: #0f1115;
+      --text: #eee;
+      --accent: #4f8cff;
+      --font: 'Segoe UI', sans-serif;
+    }
+
+    body {
+      margin: 0;
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      transition: background 0.7s, color 0.7s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    header {
+      text-align: center;
+      padding: 60px 20px 30px;
+    }
+
+    h1 {
+      margin-bottom: 10px;
+      font-size: 2.5em;
+      letter-spacing: 2px;
+    }
+
+    p {
+      font-size: 1.1em;
+    }
+
+    #initial-buttons {
+      margin: 20px;
+    }
+
+    #initial-buttons button {
+      margin: 10px;
+      padding: 14px 26px;
+      font-size: 16px;
+      border: none;
+      background: var(--accent);
+      color: white;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.3s, transform 0.2s;
+    }
+
+    #initial-buttons button:hover {
+      background: #3765c9;
+      transform: scale(1.05);
+    }
+    
+    .portal-btn {
+    display: inline-block;
+    margin: 10px;
+    padding: 14px 26px;
+    font-size: 16px;
+    background: var(--accent);
+    color: white;
+    text-decoration: none;
+    border-radius: 6px;
+    transition: background 0.3s, transform 0.2s;
+    }
+
+    .portal-btn:hover {
+    background: #3765c9;
+    transform: scale(1.05);
+    }
+
+    nav#main-nav {
+      display: none;
+      position: fixed;
+      top: 0;
+      width: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(5px);
+      padding: 10px 0;
+      text-align: center;
+      z-index: 1000;
+    }
+
+    nav#main-nav button {
+      background: none;
+      border: none;
+      color: var(--text);
+      font-size: 16px;
+      margin: 0 20px;
+      cursor: pointer;
+      transition: color 0.3s;
+    }
+
+    nav#main-nav button:hover {
+      color: var(--accent);
+    }
+
+    /* Icons for music links */
+    .band-icons { margin-left: 10px; display: inline-flex; gap: 8px; vertical-align: middle; }
+    .band-icons a { display: inline-block; width: 20px; height: 20px; color: inherit; opacity: 0.9; transition: opacity 0.15s, transform 0.12s; }
+    .band-icons a:hover { opacity: 1; transform: translateY(-2px); }
+    .band-icons svg { width: 100%; height: 100%; fill: currentColor; }
+
+    .section {
+      display: none;
+      max-width: 850px;
+      padding: 80px 20px 30px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      margin: 20px;
+      transition: background 0.7s;
+    }
+
+    .active {
+      display: block;
+    }
+
+    footer {
+      margin-top: auto;
+      padding: 20px;
+      font-size: 14px;
+      opacity: 0.6;
+    }
+
+    /* Section themes */
+    body.business {
+      --bg: #f4f6f8;
+      --text: #222;
+      --accent: #0077cc;
+      --font: 'Helvetica Neue', sans-serif;
+    }
+
+    body.business .section {
+      background: white;
+    }
+
+    body.music {
+      --bg: #1a1a2e;
+      --text: #f8f8f8;
+      --accent: #e94560;
+      --font: 'Montserrat', sans-serif;
+    }
+
+    body.music .section {
+      background: rgba(233, 69, 96, 0.1);
+    }
+
+    body.personal {
+      --bg: #fff8f0;
+      --text: #333;
+      --accent: #da627d;
+      --font: 'Georgia', serif;
+    }
+
+    body.personal .section {
+      background: rgba(255, 255, 255, 0.8);
+    }
