@@ -116,6 +116,33 @@ body.business { --bg: #f4f6f8; --text: #222; --accent: #0077cc; }
 body.music { --bg: #1a1a2e; --text: #f8f8f8; --accent: #e94560; }
 body.personal { --bg: #fff8f0; --text: #333; --accent: #da627d; }
 
+/* ===== Music Page Icon Normalization ===== */
+body.music .band-icons {
+  display: inline-flex;
+  gap: 10px;
+  margin-left: 10px;
+  vertical-align: middle;
+}
+
+body.music .band-icons a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+body.music .band-icons svg {
+  width: 20px;
+  height: 20px;
+  fill: var(--accent);
+  transition: transform 0.2s, fill 0.2s;
+}
+
+body.music .band-icons a:hover svg {
+  transform: scale(1.2);
+  fill: #ffffff;
+}
+
+
 /* ===== Footer ===== */
 footer {
   margin-top: 40px;
