@@ -171,7 +171,7 @@ body.music h3 {
   margin-right: 12px;
 }
 
-/* ===== Music Page Icon Styling (LOCAL SVG FILES) ===== */
+/* ===== Music Page Icon Styling (Brand Colored – FIXED) ===== */
 body.music .band-icons {
   display: inline-flex;
   gap: 12px;
@@ -187,17 +187,37 @@ body.music .band-icons a {
 body.music .band-icons img {
   width: 22px;
   height: 22px;
-  opacity: 0.85;
-
-  /* ensures dark SVGs show on dark background */
-  filter: invert(1);
-
-  transition: transform 0.2s ease, opacity 0.2s ease;
+  opacity: 0.75;
+  filter: invert(1) grayscale(100%);
+  transition: transform 0.2s ease, opacity 0.2s ease, filter 0.25s ease;
 }
 
+/* Scale only — NO filter here */
 body.music .band-icons a:hover img {
   transform: scale(1.2);
   opacity: 1;
+}
+
+/* ===== Brand Colors (FORCED OVERRIDE) ===== */
+
+/* Spotify Green */
+body.music .band-icons a.icon-spotify:hover img {
+  filter: invert(56%) sepia(84%) saturate(420%) hue-rotate(86deg) brightness(95%) contrast(90%);
+}
+
+/* YouTube Red */
+body.music .band-icons a.icon-youtube:hover img {
+  filter: invert(16%) sepia(98%) saturate(7410%) hue-rotate(357deg) brightness(95%) contrast(112%);
+}
+
+/* Facebook Blue */
+body.music .band-icons a.icon-facebook:hover img {
+  filter: invert(32%) sepia(94%) saturate(1860%) hue-rotate(203deg) brightness(96%) contrast(92%);
+}
+
+/* Website / Globe (Accent color) */
+body.music .band-icons a.icon-website:hover img {
+  filter: invert(63%) sepia(48%) saturate(3900%) hue-rotate(330deg) brightness(98%) contrast(90%);
 }
 
 /* ===== Services ===== */
