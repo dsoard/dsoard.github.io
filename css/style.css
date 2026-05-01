@@ -171,6 +171,64 @@ body.music h3 {
   margin-right: 12px;
 }
 
+/* ===== Band Hover Container ===== */
+.band-item {
+  position: relative;
+  cursor: pointer;
+}
+
+/* Row stays clean */
+.band-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 12px 0;
+}
+
+/* ===== Video Panel (hidden by default) ===== */
+.video-panel {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.4s ease, opacity 0.3s ease;
+  opacity: 0;
+}
+
+/* Show on hover */
+.band-item:hover .video-panel {
+  max-height: 260px;
+  opacity: 1;
+}
+
+/* ===== Horizontal Scroll Container ===== */
+.video-scroll {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding: 16px 0;
+
+  scroll-snap-type: x mandatory;
+}
+
+/* ===== Individual Videos ===== */
+.video-scroll iframe {
+  flex: 0 0 auto;
+  width: 320px;
+  height: 180px;
+  border: none;
+  border-radius: 8px;
+
+  scroll-snap-align: start;
+}
+
+/* ===== Optional: nicer scrollbar ===== */
+.video-scroll::-webkit-scrollbar {
+  height: 8px;
+}
+
+.video-scroll::-webkit-scrollbar-thumb {
+  background: var(--accent);
+  border-radius: 4px;
+}
 /* ===== Music Page Icon Styling (Brand Colored – FIXED) ===== */
 body.music .band-icons {
   display: inline-flex;
