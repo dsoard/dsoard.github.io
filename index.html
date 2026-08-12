@@ -9,21 +9,37 @@
   <script src="js/script.js" defer></script>
 </head>
 <body class="landing">
-  <div id="landing-container">
-    <header>
-      <h1>David Soard</h1>
-      <p>Explore business analysis, music & entertainment, and personal work.</p>
+  <main class="landing-shell">
+    <header class="landing-header">
+      <div class="eyebrow">DAVID SOARD</div>
+      <h1>One person.<br><span>Three worlds.</span></h1>
+      <p class="landing-intro">Explore the work, the music, and the life behind the name.</p>
     </header>
 
-    <div id="portal-buttons">
-      <a href="business/index.html" class="portal-btn">Business</a>
-      <a href="music/index.html" class="portal-btn">Music & Entertainment</a>
-      <a href="personal/index.html" class="portal-btn">Personal</a>
-    </div>
-  </div>
+    <nav class="portal-grid" aria-label="Explore David Soard">
+      <a class="portal-card portal-business" href="business/">
+        <span class="portal-number">01</span>
+        <span class="portal-label">Business</span>
+        <span class="portal-action">SOLVE</span>
+        <span class="portal-description">Business analysis, operations, technology, and process improvement.</span>
+      </a>
 
-  <footer>&copy; 2025 David Soard. All rights reserved.</footer>
+      <a class="portal-card portal-music" href="music/">
+        <span class="portal-number">02</span>
+        <span class="portal-label">Music &amp; Entertainment</span>
+        <span class="portal-action">CREATE</span>
+        <span class="portal-description">Bands, engineering, session work, and teaching.</span>
+      </a>
+
+      <a class="portal-card portal-personal" href="personal/">
+        <span class="portal-number">03</span>
+        <span class="portal-label">Personal</span>
+        <span class="portal-action">CONNECT</span>
+        <span class="portal-description">The person behind the professional and creative sides.</span>
+      </a>
+    </nav>
+  </main>
+
+  <footer>&copy; <span data-year></span> David Soard. All rights reserved.</footer>
 </body>
 </html>
-
-

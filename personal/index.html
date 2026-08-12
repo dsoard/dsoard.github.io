@@ -1,30 +1,58 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Personal – David Soard</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="The personal side of David Soard.">
+  <title>Personal | David Soard</title>
   <link rel="stylesheet" href="../css/style.css">
   <script src="../js/script.js" defer></script>
 </head>
-<body>
-<nav id="main-nav">
-  <a href="../index.html">Home</a>
-  <a href="../business/index.html">Business</a>
-  <a href="../music/index.html">Music & Entertainment</a>
-  <a href="index.html">Personal</a>
-</nav>
+<body class="personal">
+  <nav id="main-nav">
+    <a class="brand" href="../">DAVID SOARD</a>
+    <div class="nav-links">
+      <a href="../business/">Business</a>
+      <a href="../music/">Music</a>
+      <a href="../personal/" class="active">Personal</a>
+    </div>
+  </nav>
 
-    <section>
-  <h2>About Me</h2>
-  <p>Hello! I'm David Soard, a passionate human driven by creativity, curiosity, and connection.</p>
-  <p>I love music, technology, meaningful conversations, and building cool things with cool people.</p>
-  <h3>Let's Connect</h3>
-  <p>Email: <a href="mailto:david@davidsoard.com">david@davidsoard.com</a></p>
-  <!--<p>Instagram: [your IG or other social]</p>-->
+  <main class="page-shell personal-shell">
+    <header class="page-hero">
+      <div class="eyebrow">PERSONAL</div>
+      <h1>There's more to a person<br><span>than a job title.</span></h1>
+      <p class="hero-copy">This is the less formal corner of the site — a place for friends, family, curiosity, projects, and the things that don't fit neatly on a résumé.</p>
+    </header>
+
+    <section class="personal-grid">
+      <article class="personal-feature">
+        <span class="section-kicker">ABOUT</span>
+        <h2>Curious by default.</h2>
+        <p>I'm drawn to music, technology, problem solving, and making things. I like understanding how things work, taking them apart, and occasionally putting them back together better than I found them.</p>
+      </article>
+
+      <article class="personal-note">
+        <span class="section-kicker">CURRENTLY</span>
+        <ul>
+          <li>Building things on the web</li>
+          <li>Making music</li>
+          <li>Learning something new</li>
+          <li>Looking for the next interesting problem</li>
+        </ul>
+      </article>
     </section>
-    <footer>
-  &copy; 2025 David Soard. All rights reserved.
-</footer>
+
+    <section class="content-section">
+      <div class="section-heading">
+        <span class="section-kicker">THE SHORT VERSION</span>
+        <h2>Music. Technology. People. Curiosity.</h2>
+      </div>
+      <p class="lead">Those four things have followed me through most of my life. They're also the reason this site has three different sides. If you know me personally, this is the place to stay connected. If you don't, welcome — have a look around.</p>
+      <a class="warm-button" href="mailto:david@davidsoard.com">Let's connect →</a>
+    </section>
+  </main>
+
+  <footer>&copy; <span data-year></span> David Soard. All rights reserved.</footer>
 </body>
 </html>
