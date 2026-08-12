@@ -3,35 +3,46 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>David Soard Portal</title>
+  <title>David Soard</title>
+  <meta name="description" content="David Soard — business, music, and personal portfolio.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/css/style.css">
   <script src="/js/script.js" defer></script>
 </head>
 
 <body class="landing">
-<div id="landing-container">
+
 <nav id="main-nav">
-  <a href="/">Home</a>
+  <a href="/" class="active">Home</a>
   <a href="/business/">Business</a>
   <a href="/music/">Music & Entertainment</a>
   <a href="/personal/">Personal</a>
 </nav>
 
-<header>
-  <h1>Welcome!</h1>
-  <p>What brings you here?</p>
-</header>
+<div class="hero">
+  <span class="eyebrow">Welcome</span>
+  <h1>David Soard</h1>
+  <p class="tagline">Business analyst by trade, musician by heart. Pick a path below to see what you're looking for.</p>
+</div>
 
 <div id="portal-buttons">
-  <a href="/business/" class="portal-btn">Business</a>
-  <a href="/music/" class="portal-btn">Music & Entertainment</a>
-  <a href="/personal/" class="portal-btn">Personal</a>
+  <a href="/business/" class="portal-btn">
+    Business
+    <span class="sub">Resume & experience</span>
+  </a>
+  <a href="/music/" class="portal-btn">
+    Music & Entertainment
+    <span class="sub">Bands, shows, and sound</span>
+  </a>
+  <a href="/personal/" class="portal-btn">
+    Personal
+    <span class="sub">A bit about me</span>
+  </a>
 </div>
-</div>
+
 <footer>
   &copy; 2025 David Soard. All rights reserved.
 </footer>
+
 </body>
 </html>
-
-
