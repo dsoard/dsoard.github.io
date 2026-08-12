@@ -1,69 +1,103 @@
-/* ===== Global ===== */
+/* ============================================================
+   David Soard — global styles
+   Bold, modern design system shared across all pages
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap');
+
 :root {
-  --bg: #0f1115;
-  --text: #eee;
+  --bg: #0c0e14;
+  --bg-elevated: #14161f;
+  --text: #f2f2f4;
+  --text-dim: #a7a9b4;
   --accent: #4f8cff;
-  --font: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --accent-text: #0c0e14;
+  --border: rgba(255,255,255,0.08);
+
+  --coral: #ff5a4e;
+  --teal: #17c3a2;
+  --pink: #ef5da8;
+
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, -apple-system, sans-serif;
+
+  --radius: 14px;
 }
+
+* { box-sizing: border-box; }
 
 body {
   margin: 0;
-  font-family: var(--font);
+  font-family: var(--font-body);
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
-  text-align: center;
 }
+
+a { color: inherit; }
+
+h1, h2, h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  line-height: 1.15;
+  margin: 0 0 0.5em;
+}
+
+p { line-height: 1.65; color: var(--text-dim); }
 
 /* ===== Navigation ===== */
 #main-nav {
   position: sticky;
   top: 0;
-  background: rgba(0,0,0,0.7);
-  backdrop-filter: blur(6px);
-  padding: 12px 0;
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  padding: 18px 16px;
+  background: rgba(12,14,20,0.85);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
   z-index: 1000;
+  flex-wrap: wrap;
 }
 
 #main-nav a {
-  color: var(--text);
+  color: var(--text-dim);
   text-decoration: none;
-  margin: 0 16px;
-  font-size: 16px;
-  opacity: 0.85;
-}
-
-#main-nav a.active {
-  font-weight: bold;
-  border-bottom: 2px solid var(--accent);
-  opacity: 1;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 14px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  transition: background 0.2s ease, color 0.2s ease;
 }
 
 #main-nav a:hover {
-  color: var(--accent);
-  opacity: 1;
+  color: var(--text);
+  background: rgba(255,255,255,0.06);
 }
 
-/* ===== Sections / Content ===== */
+#main-nav a.active {
+  color: var(--accent-text);
+  background: var(--accent);
+}
+
+/* ===== Content containers ===== */
 section {
-  max-width: 900px;
-  margin: 40px auto;
+  max-width: 880px;
+  margin: 0 auto;
   padding: 20px;
-  text-align: left;
 }
 
 main.content {
-  max-width: 900px;
+  max-width: 880px;
   margin: 0 auto;
-  padding: 40px 20px;
-  text-align: left;
+  padding: 48px 20px 20px;
 }
 
 /* ===== Landing Page ===== */
 body.landing {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
 }
 
 body.landing main.landing-shell {
@@ -179,9 +213,8 @@ body.landing .portal-description {
   margin-top: auto;
 }
 
-/* ===== Keyframes ===== */
 @keyframes fadeSlideDown {
-  0% { opacity: 0; transform: translateY(-20px); }
+  0% { opacity: 0; transform: translateY(-16px); }
   100% { opacity: 1; transform: translateY(0); }
 }
 
@@ -190,175 +223,267 @@ body.landing .portal-description {
   100% { opacity: 1; transform: translateY(0); }
 }
 
+@media (max-width: 640px) {
+  #portal-buttons { grid-template-columns: 1fr; }
+}
+
 /* ===== Page Themes ===== */
-body.business {
-  --bg: #f4f6f8;
-  --text: #222;
-  --accent: #0077cc;
+body.business { --accent: var(--teal); }
+body.music { --accent: var(--coral); }
+body.personal { --accent: var(--pink); }
+
+/* ===== Page Header (subpages) ===== */
+.page-header {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 8px 20px 0;
 }
 
-body.music {
-  --bg: #1a1a2e;
-  --text: #f8f8f8;
-  --accent: #e94560;
+.page-header .kicker {
+  font-family: var(--font-display);
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
 }
 
-body.personal {
-  --bg: #fff8f0;
-  --text: #333;
-  --accent: #da627d;
+.page-header h1 { font-size: clamp(30px, 5vw, 42px); margin-top: 6px; }
+
+/* ===== Cards (shared) ===== */
+.card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  margin-bottom: 16px;
 }
 
-/* ===== Music Page Layout ===== */
-body.music h1,
-body.music h2,
-body.music h3 {
+/* ===== Business / Resume ===== */
+.summary-card p { color: var(--text); }
+
+.timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.timeline li {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+}
+
+.timeline .role {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 16px;
   color: var(--text);
 }
 
+.timeline .org a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.timeline .org a:hover { text-decoration: underline; }
+
+.timeline .dates {
+  display: block;
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.tag-list li {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 13px;
+  padding: 6px 14px;
+  border-radius: 999px;
+}
+
+.contact-card {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  align-items: center;
+}
+
+.contact-card a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+.contact-card a:hover { text-decoration: underline; }
+
+/* ===== Music Page ===== */
 .bands-list {
   list-style: none;
   padding: 0;
-  margin: 2rem 0;
-}
-
-.bands-list li {
+  margin: 0;
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  padding: 12px 0;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
+  flex-direction: column;
+  gap: 12px;
 }
 
-.band-name {
-  font-weight: 600;
-  margin-right: 6px;
-}
-
-.band-role {
-  opacity: 0.7;
-  margin-right: 12px;
-}
-
-/* ===== Band Hover Container ===== */
 .band-item {
   position: relative;
   cursor: pointer;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  transition: border-color 0.2s ease;
 }
 
-/* Row stays clean */
+.band-item:hover { border-color: var(--accent); }
+
 .band-row {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  padding: 12px 0;
+  gap: 4px;
 }
 
-/* ===== Video Panel (hidden by default) ===== */
-.video-panel {
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height 0.4s ease, opacity 0.3s ease;
-  opacity: 0;
+.band-name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--text);
+  margin-right: 6px;
 }
 
-/* Show on hover */
-.band-item:hover .video-panel {
-  max-height: 260px;
-  opacity: 1;
+.band-role {
+  color: var(--text-dim);
+  margin-right: 12px;
+  font-size: 14px;
 }
 
-/* ===== Horizontal Scroll Container ===== */
-.video-scroll {
-  display: flex;
-  gap: 16px;
-  overflow-x: auto;
-  padding: 16px 0;
-
-  scroll-snap-type: x mandatory;
-}
-
-/* ===== Individual Videos ===== */
-.video-scroll iframe {
-  flex: 0 0 auto;
-  width: 320px;
-  height: 180px;
-  border: none;
-  border-radius: 8px;
-
-  scroll-snap-align: start;
-}
-
-/* ===== Optional: nicer scrollbar ===== */
-.video-scroll::-webkit-scrollbar {
-  height: 8px;
-}
-
-.video-scroll::-webkit-scrollbar-thumb {
-  background: var(--accent);
-  border-radius: 4px;
-}
-/* ===== Music Page Icon Styling (Brand Colored – FIXED) ===== */
-body.music .band-icons {
+.band-icons {
   display: inline-flex;
   gap: 12px;
   margin-left: auto;
 }
 
-body.music .band-icons a {
+.band-icons a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
 
-body.music .band-icons img {
-  width: 22px;
-  height: 22px;
-  opacity: 0.75;
+.band-icons img {
+  width: 20px;
+  height: 20px;
+  opacity: 0.7;
   filter: invert(1) grayscale(100%);
   transition: transform 0.2s ease, opacity 0.2s ease, filter 0.25s ease;
 }
 
-/* Scale only — NO filter here */
-body.music .band-icons a:hover img {
-  transform: scale(1.2);
+.band-icons a:hover img {
+  transform: scale(1.15);
   opacity: 1;
 }
 
-/* ===== Brand Colors (FORCED OVERRIDE) ===== */
+.icon-spotify:hover img { filter: invert(56%) sepia(84%) saturate(420%) hue-rotate(86deg) brightness(95%) contrast(90%); }
+.icon-youtube:hover img { filter: invert(16%) sepia(98%) saturate(7410%) hue-rotate(357deg) brightness(95%) contrast(112%); }
+.icon-facebook:hover img { filter: invert(32%) sepia(94%) saturate(1860%) hue-rotate(203deg) brightness(96%) contrast(92%); }
+.icon-website:hover img { filter: invert(63%) sepia(48%) saturate(3900%) hue-rotate(330deg) brightness(98%) contrast(90%); }
 
-/* Spotify Green */
-body.music .band-icons a.icon-spotify:hover img {
-  filter: invert(56%) sepia(84%) saturate(420%) hue-rotate(86deg) brightness(95%) contrast(90%);
+.video-panel {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.4s ease, opacity 0.3s ease, margin-top 0.4s ease;
+  opacity: 0;
 }
 
-/* YouTube Red */
-body.music .band-icons a.icon-youtube:hover img {
-  filter: invert(16%) sepia(98%) saturate(7410%) hue-rotate(357deg) brightness(95%) contrast(112%);
+.band-item:hover .video-panel,
+.band-item:focus-within .video-panel {
+  max-height: 260px;
+  opacity: 1;
+  margin-top: 16px;
 }
 
-/* Facebook Blue */
-body.music .band-icons a.icon-facebook:hover img {
-  filter: invert(32%) sepia(94%) saturate(1860%) hue-rotate(203deg) brightness(96%) contrast(92%);
+.video-scroll {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scroll-snap-type: x mandatory;
 }
 
-/* Website / Globe (Accent color) */
-body.music .band-icons a.icon-website:hover img {
-  filter: invert(63%) sepia(48%) saturate(3900%) hue-rotate(330deg) brightness(98%) contrast(90%);
+.video-scroll iframe {
+  flex: 0 0 auto;
+  width: 320px;
+  height: 180px;
+  border: none;
+  border-radius: 10px;
+  scroll-snap-align: start;
 }
 
-/* ===== Services ===== */
+.video-scroll::-webkit-scrollbar { height: 8px; }
+.video-scroll::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 4px; }
+
 .services-list {
-  margin-left: 1.25rem;
-  list-style: square;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.services-list li {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  color: var(--text);
+  font-size: 14px;
+}
+
+@media (max-width: 560px) {
+  .services-list { grid-template-columns: 1fr; }
+}
+
+.contact-line {
+  margin-top: 16px;
+  color: var(--text-dim);
+}
+.contact-line a { color: var(--accent); text-decoration: none; font-weight: 500; }
+.contact-line a:hover { text-decoration: underline; }
+
+/* ===== Personal Page ===== */
+.about-card p { color: var(--text); font-size: 16px; }
+
+/* ===== Reduced motion ===== */
+@media (prefers-reduced-motion: reduce) {
+  .hero .eyebrow, .hero h1, .hero p.tagline, #portal-buttons .portal-btn {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
 }
 
 /* ===== Footer ===== */
 footer {
-  margin-top: 40px;
-  padding: 16px 0;
-  background: rgba(0,0,0,0.7);
-  color: var(--text);
-  font-size: 14px;
+  margin-top: 60px;
+  padding: 24px 20px;
+  border-top: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 13px;
   text-align: center;
 }
