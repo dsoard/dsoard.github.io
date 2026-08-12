@@ -1,9 +1,19 @@
 document.addEventListener("DOMContentLoaded", () => {
-  const body = document.body;
+  document.querySelectorAll("[data-year]").forEach(el => {
+    el.textContent = new Date().getFullYear();
+  });
 
-  if (body.classList.contains("landing")) {
-    console.log("Landing page loaded. Animations will run.");
-  }
+  // On touch devices, tapping an artist card opens its video reel.
+  // Desktop hover behavior remains intact.
+  document.querySelectorAll(".artist-card").forEach(card => {
+    const trigger = card.querySelector(".artist-trigger");
+    if (!trigger) return;
 
-  // Future enhancements can be safely added here
+    trigger.addEventListener("click", (event) => {
+      if (event.target.closest(".band-icons a")) return;
+      if (window.matchMedia("(hover: none)").matches) {
+        card.classList.toggle("is-open");
+      }
+    });
+  });
 });

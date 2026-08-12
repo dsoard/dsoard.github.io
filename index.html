@@ -1,48 +1,46 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>David Soard</title>
-  <meta name="description" content="David Soard — business, music, and personal portfolio.">
-  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/css/style.css">
-  <script src="/js/script.js" defer></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="David Soard — business, music, technology, and life.">
+  <title>David Soard | Business • Music • Life</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/script.js" defer></script>
 </head>
-
 <body class="landing">
+  <main class="landing-shell">
+    <header class="landing-header">
+      <div class="eyebrow">DAVID SOARD</div>
+      <h1>One person.<br><span>Three worlds.</span></h1>
+      <p class="landing-intro">Explore the work, the music, and the life behind the name.</p>
+    </header>
 
-<nav id="main-nav">
-  <a href="/" class="active">Home</a>
-  <a href="/business/">Business</a>
-  <a href="/music/">Music & Entertainment</a>
-  <a href="/personal/">Personal</a>
-</nav>
+    <nav class="portal-grid" aria-label="Explore David Soard">
+      <a class="portal-card portal-business" href="business/">
+        <span class="portal-number">01</span>
+        <span class="portal-label">Business</span>
+        <span class="portal-action">SOLVE</span>
+        <span class="portal-description">Business analysis, operations, technology, and process improvement.</span>
+      </a>
 
-<div class="hero">
-  <span class="eyebrow">Welcome</span>
-  <h1>David Soard</h1>
-  <p class="tagline">Business analyst by trade, musician by heart. Pick a path below to see what you're looking for.</p>
-</div>
+      <a class="portal-card portal-music" href="music/">
+        <span class="portal-number">02</span>
+        <span class="portal-label">Music &amp; Entertainment</span>
+        <span class="portal-action">CREATE</span>
+        <span class="portal-description">Bands, engineering, session work, and teaching.</span>
+      </a>
 
-<div id="portal-buttons">
-  <a href="/business/" class="portal-btn">
-    Business
-    <span class="sub">Resume & experience</span>
-  </a>
-  <a href="/music/" class="portal-btn">
-    Music & Entertainment
-    <span class="sub">Bands, shows, and sound</span>
-  </a>
-  <a href="/personal/" class="portal-btn">
-    Personal
-    <span class="sub">A bit about me</span>
-  </a>
-</div>
+      <a class="portal-card portal-personal" href="personal/">
+        <span class="portal-number">03</span>
+        <span class="portal-label">Personal</span>
+        <span class="portal-action">CONNECT</span>
+        <span class="portal-description">The person behind the professional and creative sides.</span>
+      </a>
+    </nav>
+  </main>
 
-<footer>
-  &copy; 2025 David Soard. All rights reserved.
-</footer>
-
+  <footer>&copy; <span data-year></span> David Soard. All rights reserved.</footer>
 </body>
 </html>
