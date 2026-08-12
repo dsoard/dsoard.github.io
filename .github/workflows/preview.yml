@@ -22,5 +22,6 @@ jobs:
       - name: Deploy Preview
         uses: rossjrw/pr-preview-action@v1
         with:
-          source-dir: . # Change this if your HTML files are in a folder (e.g., ./src)
+          source-dir: .
           action: ${{ github.event.action }}
+          token: ${{ secrets.GITHUB_TOKEN }}
