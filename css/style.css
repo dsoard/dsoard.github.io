@@ -305,15 +305,6 @@ body.landing::before {
 .portal-music { --portal-accent: #e94560; }
 .portal-personal { --portal-accent: #e4a36b; }
 
-.portal-number {
-  position: absolute;
-  top: 24px;
-  left: 28px;
-  color: var(--muted);
-  font-size: 11px;
-  letter-spacing: .16em;
-}
-
 .portal-label {
   position: relative;
   font-size: clamp(26px, 3vw, 38px);
@@ -363,19 +354,11 @@ body.business #main-nav {
 body.business .job-card {
   position: relative;
   display: grid;
-  grid-template-columns: 58px minmax(0, 1fr) minmax(280px, .72fr);
+  grid-template-columns: minmax(0, 1fr) minmax(280px, .72fr);
   gap: 24px;
   padding: 30px 0;
   border-top: 1px solid var(--line);
   transition: padding .25s ease, background .25s ease;
-}
-
-.job-marker {
-  color: var(--accent);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: .14em;
-  padding-top: 5px;
 }
 
 .job-meta {
@@ -609,15 +592,8 @@ body.music .artist-list {
   background: rgba(233,69,96,.06);
 }
 
-.service-card > span {
-  color: var(--accent);
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: .18em;
-}
-
 .service-card h3 {
-  margin: 55px 0 10px;
+  margin: 0 0 10px;
   font-size: 23px;
 }
 
@@ -739,11 +715,11 @@ body.personal .personal-grid {
   .portal-card { min-height: 220px; }
 
   body.business .job-card {
-    grid-template-columns: 42px minmax(0, 1fr);
+    grid-template-columns: 1fr;
   }
 
   .job-detail {
-    grid-column: 2;
+    grid-column: 1;
     padding: 16px 0 0;
     border-left: 0;
     border-top: 1px solid var(--line);
