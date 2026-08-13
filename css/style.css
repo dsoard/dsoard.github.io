@@ -655,6 +655,43 @@ body.personal .personal-grid {
   background: var(--surface);
 }
 
+.personal-feature {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: clamp(24px, 4vw, 40px);
+}
+
+.personal-feature-text {
+  flex: 1 1 320px;
+}
+
+.polaroid {
+  flex: 0 0 auto;
+  width: 170px;
+  margin: 0;
+  padding: 10px 10px 18px;
+  background: #fffdfa;
+  border: 1px solid var(--line);
+  box-shadow: 0 14px 30px rgba(58,44,39,.14);
+  transform: rotate(-3deg);
+}
+
+.polaroid img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.polaroid figcaption {
+  margin-top: 10px;
+  font-family: var(--serif);
+  font-size: 13px;
+  font-style: italic;
+  color: var(--muted);
+  text-align: center;
+}
+
 .personal-feature h2 {
   margin: 0;
   font-family: var(--serif);
@@ -748,6 +785,16 @@ body.personal .personal-grid {
   .capability-grid { grid-template-columns: repeat(2, 1fr); }
 
   body.personal .personal-grid { grid-template-columns: 1fr; }
+
+  .personal-feature {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .polaroid {
+    align-self: center;
+    transform: rotate(-2deg);
+  }
 }
 
 @media (max-width: 560px) {
