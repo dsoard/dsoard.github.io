@@ -580,6 +580,7 @@ body.music .artist-list {
 
 .service-card {
   display: block;
+  position: relative;
   min-height: 240px;
   padding: 24px;
   border: 1px solid var(--line);
@@ -587,6 +588,7 @@ body.music .artist-list {
   color: inherit;
   text-decoration: none;
   cursor: pointer;
+  overflow: hidden;
   transition: transform .25s ease, background .25s ease, border-color .25s ease;
 }
 
@@ -619,6 +621,57 @@ body.music .artist-list {
   margin: 0;
   color: var(--muted);
   font-size: 14px;
+}
+
+/* Service card hover art */
+.service-art {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  width: 80px;
+  height: 80px;
+  color: var(--accent);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity .4s ease, transform .4s ease;
+  pointer-events: none;
+}
+
+.service-art svg {
+  width: 100%;
+  height: 100%;
+  stroke: currentColor;
+}
+
+.service-card:hover .service-art,
+.service-card:focus-visible .service-art {
+  opacity: .9;
+  transform: translateY(0);
+}
+
+.service-card:hover .cap { animation: svc-cap 1.4s ease-in-out infinite alternate; }
+.service-card:hover .cap.c2 { animation-delay: .2s; }
+.service-card:hover .cap.c3 { animation-delay: .4s; }
+.service-card:hover .cap.c4 { animation-delay: .1s; }
+@keyframes svc-cap { from { transform: translateY(0); } to { transform: translateY(-9px); } }
+
+.service-card:hover .ndl { animation: svc-ndl 1.1s ease-in-out infinite alternate; }
+.service-card:hover .ndl.n2 { animation-delay: .3s; }
+@keyframes svc-ndl { from { transform: rotate(-26deg); } to { transform: rotate(24deg); } }
+
+.service-card:hover .amp { animation: svc-amp 1.3s ease-in-out infinite; }
+@keyframes svc-amp { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
+
+.service-card:hover .note { animation: svc-note 1.4s ease-in-out infinite; }
+@keyframes svc-note { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .service-card:hover .cap,
+  .service-card:hover .ndl,
+  .service-card:hover .amp,
+  .service-card:hover .note {
+    animation: none;
+  }
 }
 
 /* =========================================================
