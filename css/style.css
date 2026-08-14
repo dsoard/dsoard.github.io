@@ -390,18 +390,50 @@ body.business .job-card {
 }
 
 .job-detail {
+  position: relative;
   align-self: stretch;
+  display: flex;
+  align-items: center;
   padding: 18px 0 18px 24px;
   border-left: 1px solid var(--line);
-  opacity: .38;
-  transform: translateX(10px);
-  transition: opacity .25s ease, transform .25s ease;
 }
 
-.job-card:hover .job-detail,
-.job-card:focus-within .job-detail {
+.detail-cue {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  opacity: .55;
+  transition: opacity .25s ease;
+}
+
+.detail-cue::after {
+  content: " →";
+  color: var(--accent);
+}
+
+.detail-body {
+  position: absolute;
+  top: 18px;
+  left: 24px;
+  right: 0;
+  opacity: 0;
+  transform: translateX(10px);
+  transition: opacity .25s ease, transform .25s ease;
+  pointer-events: none;
+}
+
+.job-card:hover .detail-cue,
+.job-card:focus-within .detail-cue {
+  opacity: 0;
+}
+
+.job-card:hover .detail-body,
+.job-card:focus-within .detail-body {
   opacity: 1;
   transform: translateX(0);
+  pointer-events: auto;
 }
 
 .detail-label {
@@ -828,11 +860,19 @@ body.personal .personal-grid {
 
   .job-detail {
     grid-column: 1;
+    display: block;
     padding: 16px 0 0;
     border-left: 0;
     border-top: 1px solid var(--line);
+  }
+
+  .detail-cue { display: none; }
+
+  .detail-body {
+    position: static;
     opacity: 1;
     transform: none;
+    pointer-events: auto;
   }
 
   .capability-grid { grid-template-columns: repeat(2, 1fr); }
