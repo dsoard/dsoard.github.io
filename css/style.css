@@ -395,38 +395,20 @@ body.business .job-card {
   display: flex;
   align-items: center;
   padding: 18px 0 18px 24px;
-  border-left: 1px solid var(--line);
-}
-
-.detail-cue {
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  opacity: .55;
-  transition: opacity .25s ease;
-}
-
-.detail-cue::after {
-  content: " →";
-  color: var(--accent);
+  border-left: 1px solid transparent;
+  transition: border-color .25s ease;
 }
 
 .detail-body {
-  position: absolute;
-  top: 18px;
-  left: 24px;
-  right: 0;
   opacity: 0;
   transform: translateX(10px);
   transition: opacity .25s ease, transform .25s ease;
   pointer-events: none;
 }
 
-.job-card:hover .detail-cue,
-.job-card:focus-within .detail-cue {
-  opacity: 0;
+.job-card:hover .job-detail,
+.job-card:focus-within .job-detail {
+  border-left-color: var(--line);
 }
 
 .job-card:hover .detail-body,
@@ -866,10 +848,7 @@ body.personal .personal-grid {
     border-top: 1px solid var(--line);
   }
 
-  .detail-cue { display: none; }
-
   .detail-body {
-    position: static;
     opacity: 1;
     transform: none;
     pointer-events: auto;
