@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Live Review-Reply Demo</title>
+<style>
+  :root {
+    --bg: #0b0d10;
+    --surface: #12161b;
+    --surface-2: #171c22;
+    --text: #f3f5f7;
+    --muted: #9ca6b2;
+    --line: rgba(255,255,255,.10);
+    --accent: #5c8dff;
+    --accent-soft: rgba(92,141,255,.16);
+    --good: #37c98b;
+    --font: "Segoe UI", Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    display: flex;
+    justify-content: center;
+    padding: 32px 20px;
+  }
+  .wrap { width: 100%; max-width: 640px; }
+
+  .eyebrow {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  h1 {
+    font-size: clamp(24px, 5vw, 34px);
+    margin: 8px 0 6px;
+    line-height: 1.15;
+  }
+  .sub { color: var(--muted); margin: 0 0 28px; font-size: 15px; }
+
+  .label {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .tag {
+    font-size: 10px;
+    letter-spacing: .08em;
+    background: var(--accent-soft);
+    color: var(--accent);
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-weight: 700;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 18px;
+    margin-bottom: 22px;
+  }
+
+  .reviewer {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+  .avatar {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; color: var(--muted); font-size: 14px;
+  }
+  .reviewer-name { font-weight: 600; font-size: 14px; }
+  .stars { color: #f5b301; font-size: 15px; letter-spacing: 1px; }
+
+  textarea.review-edit {
+    width: 100%;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 14.5px;
+    line-height: 1.55;
+    padding: 12px;
+    resize: vertical;
+    min-height: 92px;
+  }
+  textarea.review-edit:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin: 14px 0 26px;
+  }
+  .rating-pick { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+  select {
+    background: var(--surface-2);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-family: inherit;
+    font-size: 14px;
+  }
+  button.generate {
+    margin-left: auto;
+    background: var(--accent);
+    color: #06111f;
+    border: none;
+    border-radius: 8px;
+    padding: 11px 20px;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    transition: opacity .2s ease, transform .1s ease;
+  }
+  button.generate:hover { opacity: .92; }
+  button.generate:active { transform: translateY(1px); }
+  button.generate:disabled { opacity: .5; cursor: default; }
+
+  .flow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: var(--muted);
+    font-size: 12px;
+    margin: 0 0 20px;
+    flex-wrap: wrap;
+  }
+  .flow .arrow { color: var(--accent); }
+  .flow b { color: var(--text); font-weight: 600; }
+
+  .reply-card {
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    background: var(--surface);
+    border-radius: 10px;
+    padding: 18px;
+    min-height: 70px;
+  }
+  .reply-head {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 10px;
+  }
+  .reply-from { font-weight: 700; font-size: 14px; }
+  .status {
+    font-size: 11px; font-weight: 700; letter-spacing: .06em;
+    padding: 3px 8px; border-radius: 999px;
+    background: var(--surface-2); color: var(--muted);
+  }
+  .status.live { background: rgba(245,179,1,.14); color: #f5b301; }
+  .status.done { background: rgba(55,201,139,.14); color: var(--good); }
+  .status.err  { background: rgba(255,90,90,.14); color: #ff7a7a; }
+  .reply-text { margin: 0; font-size: 15px; color: var(--text); white-space: pre-wrap; }
+  .reply-text.placeholder { color: var(--muted); font-style: italic; }
+
+  .disclaimer {
+    font-size: 12px;
+    color: var(--muted);
+    margin: 14px 2px 0;
+    line-height: 1.5;
+  }
+
+  .cta {
+    margin-top: 30px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 22px;
+  }
+  .cta h3 { margin: 0 0 6px; font-size: 17px; }
+  .cta p { margin: 0 0 14px; font-size: 14px; color: var(--muted); }
+  .cta a {
+    display: inline-block;
+    background: var(--accent);
+    color: #06111f;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 14px;
+    padding: 10px 18px;
+    border-radius: 8px;
+  }
+  .foot { margin-top: 22px; text-align: center; font-size: 12px; color: var(--muted); }
+  .foot a { color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="eyebrow">Live demo</div>
+  <h1 id="headline">AI review-reply demo</h1>
+  <p class="sub" id="subhead">A working example of the tool I set up for local businesses. Everything below is generated live — edit the review and try it yourself.</p>
+
+  <div class="label">Sample customer review <span class="tag">Example</span></div>
+  <div class="card">
+    <div class="reviewer">
+      <div class="avatar" id="avatar">JM</div>
+      <div>
+        <div class="reviewer-name" id="reviewer-name">Jordan M.</div>
+        <div class="stars" id="stars">★★★★★</div>
+      </div>
+    </div>
+    <textarea class="review-edit" id="review-input" aria-label="Sample review text — edit to try your own">Showed up right on time, diagnosed the problem fast, and didn't try to upsell me on stuff I didn't need. Honest work is hard to find. Would recommend to anyone.</textarea>
+  </div>
+
+  <div class="controls">
+    <div class="rating-pick">
+      <label for="rating">Rating</label>
+      <select id="rating">
+        <option value="5">★★★★★ (5)</option>
+        <option value="4">★★★★ (4)</option>
+        <option value="3">★★★ (3)</option>
+        <option value="2">★★ (2)</option>
+        <option value="1">★ (1)</option>
+      </select>
+    </div>
+    <button class="generate" id="go">Generate reply</button>
+  </div>
+
+  <div class="flow">
+    <span>Incoming review</span>
+    <span class="arrow">→</span>
+    <b id="flow-biz">AI (live)</b>
+    <span class="arrow">→</span>
+    <span>Brand-voice reply</span>
+  </div>
+
+  <div class="label">Generated reply</div>
+  <div class="reply-card">
+    <div class="reply-head">
+      <span class="reply-from" id="reply-from">Reply from the owner</span>
+      <span class="status" id="status">Ready</span>
+    </div>
+    <p class="reply-text placeholder" id="reply">Press “Generate reply” to see a live response.</p>
+  </div>
+
+  <p class="disclaimer" id="disclaimer">
+    This is a demonstration. The reply above is generated live by an AI model at the moment you click — it is not pre-written. In a real setup, this connects to your Google Business Profile so replies can be drafted for your approval (or posted automatically, your choice).
+  </p>
+
+  <div class="cta">
+    <h3 id="cta-head">Want this set up for your business?</h3>
+    <p id="cta-sub">I build these for independent local businesses. If it'd be useful, get in touch and I'll walk you through it.</p>
+    <a id="cta-link" href="mailto:booking@davidsoard.com?subject=Review%20automation%20inquiry">Get in touch →</a>
+  </div>
+
+  <div class="foot">
+    <a href="/">davidsoard.com</a>
+  </div>
+
+</div>
+
+<script>
+  // ---- CONFIG -------------------------------------------------------------
+  // After deploying the Cloudflare Worker (see worker/DEPLOY.md), paste its
+  // URL here. Until then the page runs in a clearly-labeled offline mode.
+  const WORKER_URL = "https://review-reply-demo.dsoardworkers1.workers.dev";
+  // ------------------------------------------------------------------------
+
+  function params() {
+    const p = {};
+    new URLSearchParams(window.location.search).forEach((v, k) => p[k.toLowerCase()] = v);
+    return p;
+  }
+  const q = params();
+  const biz = (q.biz || "").trim();
+  const owner = (q.owner || "").trim();
+  const trade = (q.trade || "local service").trim();
+
+  // Personalize headings if a business was passed in the link.
+  if (biz) {
+    document.getElementById("headline").textContent = `AI review replies for ${biz}`;
+    document.getElementById("reply-from").textContent = `Reply from ${biz}`;
+    document.getElementById("flow-biz").textContent = biz + " voice";
+    document.getElementById("cta-head").textContent = `Want this set up for ${biz}?`;
+    document.title = `Review-reply demo — ${biz}`;
+  }
+  if (owner) {
+    document.getElementById("subhead").textContent =
+      `Hi ${owner} — here's a working example of the review-reply tool, tuned for a ${trade} business. Everything below is generated live; edit the review and try it yourself.`;
+  }
+
+  const reviewInput = document.getElementById("review-input");
+  const ratingSel = document.getElementById("rating");
+  const statusEl = document.getElementById("status");
+  const replyEl = document.getElementById("reply");
+  const goBtn = document.getElementById("go");
+
+  function setStatus(text, cls) {
+    statusEl.textContent = text;
+    statusEl.className = "status" + (cls ? " " + cls : "");
+  }
+
+  function typeOut(text) {
+    replyEl.classList.remove("placeholder");
+    replyEl.textContent = "";
+    let i = 0;
+    (function tick() {
+      if (i < text.length) {
+        replyEl.textContent += text.charAt(i++);
+        setTimeout(tick, 12);
+      } else {
+        setStatus("Ready to post", "done");
+      }
+    })();
+  }
+
+  async function generate() {
+    const review = reviewInput.value.trim();
+    if (!review) { reviewInput.focus(); return; }
+
+    goBtn.disabled = true;
+    setStatus("Generating…", "live");
+    replyEl.classList.add("placeholder");
+    replyEl.textContent = "Contacting the model…";
+
+    if (!WORKER_URL) {
+      // Offline/unconfigured mode — honest about what's happening.
+      setStatus("Demo offline", "err");
+      replyEl.classList.remove("placeholder");
+      replyEl.textContent =
+        "The live AI endpoint isn't connected yet. Once the Worker URL is set, this will generate a real, unique reply here.";
+      goBtn.disabled = false;
+      return;
+    }
+
+    try {
+      const res = await fetch(WORKER_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          review,
+          rating: ratingSel.value,
+          business: biz || "the business",
+          trade,
+          reviewer: document.getElementById("reviewer-name").textContent.trim(),
+        }),
+      });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      typeOut(data.reply);
+    } catch (err) {
+      setStatus("Error", "err");
+      replyEl.classList.remove("placeholder");
+      replyEl.textContent = "Something went wrong reaching the AI service. (" + err.message + ")";
+    } finally {
+      goBtn.disabled = false;
+    }
+  }
+
+  goBtn.addEventListener("click", generate);
+</script>
+</body>
+</html>
