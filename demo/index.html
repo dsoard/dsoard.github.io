@@ -172,7 +172,30 @@
   }
   .status.live { background: rgba(245,179,1,.14); color: #f5b301; }
   .status.done { background: rgba(55,201,139,.14); color: var(--good); }
+  .status.hold { background: rgba(245,179,1,.14); color: #f5b301; }
   .status.err  { background: rgba(255,90,90,.14); color: #ff7a7a; }
+
+  .route-banner {
+    font-size: 13px;
+    line-height: 1.45;
+    padding: 10px 14px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    border: 1px solid var(--line);
+  }
+  .route-banner b { font-weight: 700; }
+  .route-banner.auto {
+    background: rgba(55,201,139,.10);
+    border-color: rgba(55,201,139,.35);
+    color: #cdeede;
+  }
+  .route-banner.auto b { color: var(--good); }
+  .route-banner.hold {
+    background: rgba(245,179,1,.10);
+    border-color: rgba(245,179,1,.35);
+    color: #eee4cd;
+  }
+  .route-banner.hold b { color: #f5b301; }
   .reply-text { margin: 0; font-size: 15px; color: var(--text); white-space: pre-wrap; }
   .reply-text.placeholder { color: var(--muted); font-style: italic; }
 
@@ -248,6 +271,7 @@
   </div>
 
   <div class="label">Generated reply</div>
+  <div class="route-banner" id="route-banner" style="display:none;"></div>
   <div class="reply-card">
     <div class="reply-head">
       <span class="reply-from" id="reply-from">Reply from the owner</span>
@@ -257,7 +281,7 @@
   </div>
 
   <p class="disclaimer" id="disclaimer">
-    This is a demonstration. The reply above is generated live by an AI model at the moment you click — it is not pre-written. In a real setup, this connects to your Google Business Profile so replies can be drafted for your approval (or posted automatically, your choice).
+    This is a demonstration — the reply above is generated live by an AI model the moment you click, not pre-written. Try switching the star rating: happy reviews (4-5★) post automatically in your voice, while tougher reviews (1-3★) are drafted and routed to you first, so a bad reply never goes public without your say-so. In a real setup this connects to your Google Business Profile.
   </p>
 
   <div class="cta">
@@ -313,7 +337,25 @@
     statusEl.className = "status" + (cls ? " " + cls : "");
   }
 
-  function typeOut(text) {
+  function routeFor(rating) {
+    // 4-5 stars: auto-post hands-free. 1-3 stars: hold for the owner.
+    return rating >= 4 ? "auto" : "hold";
+  }
+
+  function applyRouting(rating) {
+    const route = routeFor(rating);
+    const banner = document.getElementById("route-banner");
+    if (route === "auto") {
+      banner.className = "route-banner auto";
+      banner.innerHTML = "<b>Auto-posted</b> — 4-5★ replies go out instantly in your voice. You never touch these.";
+    } else {
+      banner.className = "route-banner hold";
+      banner.innerHTML = "<b>Held for you</b> — a tough review is drafted, then sent to you to approve, edit, or handle personally. Never auto-posted.";
+    }
+    banner.style.display = "block";
+  }
+
+  function typeOut(text, rating) {
     replyEl.classList.remove("placeholder");
     replyEl.textContent = "";
     let i = 0;
@@ -322,7 +364,11 @@
         replyEl.textContent += text.charAt(i++);
         setTimeout(tick, 12);
       } else {
-        setStatus("Ready to post", "done");
+        if (routeFor(rating) === "auto") {
+          setStatus("Auto-posted", "done");
+        } else {
+          setStatus("Drafted — sent to owner", "hold");
+        }
       }
     })();
   }
@@ -331,8 +377,10 @@
     const review = reviewInput.value.trim();
     if (!review) { reviewInput.focus(); return; }
 
+    const rating = parseInt(ratingSel.value, 10);
     goBtn.disabled = true;
     setStatus("Generating…", "live");
+    document.getElementById("route-banner").style.display = "none";
     replyEl.classList.add("placeholder");
     replyEl.textContent = "Contacting the model…";
 
@@ -361,7 +409,8 @@
       if (!res.ok) throw new Error("HTTP " + res.status);
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      typeOut(data.reply);
+      applyRouting(rating);
+      typeOut(data.reply, rating);
     } catch (err) {
       setStatus("Error", "err");
       replyEl.classList.remove("placeholder");
@@ -370,6 +419,13 @@
       goBtn.disabled = false;
     }
   }
+
+  function syncStars() {
+    const r = parseInt(ratingSel.value, 10);
+    document.getElementById("stars").textContent = "★★★★★".slice(0, r) + "☆☆☆☆☆".slice(0, 5 - r);
+  }
+  ratingSel.addEventListener("change", syncStars);
+  syncStars();
 
   goBtn.addEventListener("click", generate);
 </script>
