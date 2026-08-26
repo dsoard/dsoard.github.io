@@ -30,6 +30,7 @@
   --font: "Segoe UI", Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   --mono: "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace;
   --radius: 14px;
+  --rail: 46px;
 }
 
 * { box-sizing: border-box; }
@@ -142,6 +143,11 @@ input { font-family: inherit; }
   margin: 0 auto;
 }
 
+/* A collapsed side panel shrinks to a rail and hands its width to the stage. */
+.grid.left-collapsed  { grid-template-columns: var(--rail) minmax(0, 1fr) minmax(260px, 340px); }
+.grid.right-collapsed { grid-template-columns: minmax(260px, 320px) minmax(0, 1fr) var(--rail); }
+.grid.left-collapsed.right-collapsed { grid-template-columns: var(--rail) minmax(0, 1fr) var(--rail); }
+
 .panel {
   background: linear-gradient(180deg, var(--surface) 0%, #0a1119 100%);
   border: 1px solid var(--line);
@@ -150,13 +156,57 @@ input { font-family: inherit; }
 }
 
 .panel-title {
-  margin: 0 0 16px;
+  margin: 0;
   font-size: 12px;
   font-weight: 800;
   letter-spacing: .16em;
   text-transform: uppercase;
   color: var(--muted);
 }
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.collapse-btn {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all .15s ease;
+}
+
+.collapse-btn:hover { border-color: var(--line-strong); background: rgba(255,255,255,.06); }
+
+/* chevron drawn from a rotated border corner */
+.collapse-btn::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  transform: translateY(-2px) rotate(-135deg);
+  transition: transform .18s ease, border-color .15s ease;
+}
+
+.collapse-btn:hover::before { border-color: var(--text); }
+.collapse-btn[aria-expanded="false"]::before { transform: translateY(-2px) rotate(45deg); }
+
+.rail-label { display: none; }
+
+.panel.is-collapsed .panel-body { display: none; }
+.panel.is-collapsed { padding: 12px; }
+.panel.is-collapsed .panel-head { margin-bottom: 0; }
 
 /* ---------------- Fields ---------------- */
 
@@ -383,9 +433,14 @@ input[type=range]::-moz-range-thumb {
 .primary:hover:not(:disabled) { filter: brightness(1.08); }
 .primary:disabled { opacity: .4; cursor: default; }
 
-.danger-btn {
+.action-btn.is-recall {
   color: #2c0808;
   background: linear-gradient(180deg, #ff8b7a, #ef5b5b);
+}
+
+.action-btn.is-abort {
+  color: #2e2205;
+  background: linear-gradient(180deg, #ffd97a, var(--gold));
 }
 
 .ghost {
@@ -680,13 +735,51 @@ input[type=range]::-moz-range-thumb {
 
 /* ---------------- Responsive ---------------- */
 
+@media (min-width: 1081px) {
+  /* On the rail the panel turns vertical: title reads bottom-to-top under the toggle. */
+  .panel.is-collapsed {
+    padding: 12px 8px;
+    min-height: 190px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    overflow: hidden;
+  }
+
+  .panel.is-collapsed .panel-head { margin: 0; }
+  .panel.is-collapsed .panel-title { display: none; }
+
+  .panel.is-collapsed .rail-label {
+    display: block;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  /* A collapsed rail points the way it will open: left panel opens right, and vice versa. */
+  .panel.is-collapsed .collapse-btn::before { transform: translate(1px, -2px) rotate(135deg); }
+  #panel-launch.is-collapsed .collapse-btn::before { transform: translate(-1px, -2px) rotate(-45deg); }
+}
+
 @media (max-width: 1080px) {
-  .grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .grid,
+  .grid.left-collapsed,
+  .grid.right-collapsed,
+  .grid.left-collapsed.right-collapsed { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   #panel-stage { grid-column: 1 / -1; order: -1; }
 }
 
 @media (max-width: 720px) {
-  .grid { grid-template-columns: minmax(0, 1fr); }
+  .grid,
+  .grid.left-collapsed,
+  .grid.right-collapsed,
+  .grid.left-collapsed.right-collapsed { grid-template-columns: minmax(0, 1fr); }
   #sea { height: 220px; }
   .readouts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .bank strong { font-size: 19px; }
@@ -845,6 +938,7 @@ input[type=range]::-moz-range-thumb {
   var state = null;
   var run = null;
   var dirty = true;
+  var blockReason = null;   // why "Set sail" is unavailable, shown on the button itself
 
   function defaultState() {
     return {
@@ -854,6 +948,7 @@ input[type=range]::-moz-range-thumb {
       selected: 'fishing',
       insureOn: false,
       autoRecall: null,
+      collapsed: { launch: false, side: false },
       stats: {
         voyages: 0, sunk: 0, recalled: 0,
         bestReturn: 0, bestMult: 1, longestTrip: 0,
@@ -878,6 +973,7 @@ input[type=range]::-moz-range-thumb {
           s.chartered.fishing = true;
           if (saved.selected) s.selected = saved.selected;
           s.insureOn = !!saved.insureOn;
+          merge(s.collapsed, saved.collapsed);
           s.autoRecall = saved.autoRecall != null ? num(saved.autoRecall, null) : null;
           if (Array.isArray(saved.log)) s.log = saved.log.slice(-60);
         }
@@ -970,6 +1066,7 @@ input[type=range]::-moz-range-thumb {
   }
 
   function pct(v) { return Math.round(v * 100) + '%'; }
+  function plural(n, word) { return n + ' ' + word + (n === 1 ? '' : 's'); }
   function round2(v) { return Math.round(v * 100) / 100; }
 
   /* ---------------- DOM ---------------- */
@@ -980,9 +1077,9 @@ input[type=range]::-moz-range-thumb {
   function cacheDom() {
     ['bank', 'status-pill', 'stake', 'stake-slider', 'stake-cap-note', 'voyage-list',
      'insurance-field', 'insurance-toggle', 'insurance-terms', 'beacon-field', 'auto-recall',
-     'cost-summary', 'launch-btn', 'grant-btn', 'sea', 'sea-overlay',
+     'cost-summary', 'grant-btn', 'sea', 'sea-overlay', 'grid',
      'r-time', 'r-mult', 'r-haul', 'r-value', 'risk-fill', 'risk-label', 'risk-note',
-     'recall-btn', 'stage-hint', 'upgrade-list', 'log', 'stats', 'reset-btn'
+     'action-btn', 'stage-hint', 'upgrade-list', 'log', 'stats', 'reset-btn'
     ].forEach(function (id) { el[id] = $(id); });
   }
 
@@ -1095,7 +1192,7 @@ input[type=range]::-moz-range-thumb {
         (run.premium > 0 ? ' and ' + fmt(run.premium) + ' insured' : '') + '.<br>' +
         (run.target ? 'Beacon set to bring her home at ×' + run.target.toFixed(2) + '.'
                     : 'Call her back whenever you like.');
-      el['launch-btn'].disabled = true;
+      blockReason = null;
       el['grant-btn'].hidden = true;
       return;
     }
@@ -1116,8 +1213,11 @@ input[type=range]::-moz-range-thumb {
       lines.push('Choose a stake to see the terms.');
     }
 
-    var can = stake >= MIN_STAKE && stake <= cap && !run;
-    el['launch-btn'].disabled = !can;
+    blockReason = null;
+    if (stake <= 0) blockReason = 'Set a stake';
+    else if (stake < MIN_STAKE) blockReason = 'Stake at least ' + fmt(MIN_STAKE);
+    else if (stake > cap) blockReason = 'Over your hold — max ' + fmt(cap);
+
     if (stake > 0 && stake < MIN_STAKE) lines.push('<b>Minimum stake is ' + fmt(MIN_STAKE) + '.</b>');
     else if (stake > cap) lines.push('<b>That is more than the hold can carry.</b>');
 
@@ -1454,11 +1554,33 @@ input[type=range]::-moz-range-thumb {
       sunk: 'Lost at sea'
     })[phase];
 
-    el['recall-btn'].disabled = !run || (run.phase !== 'working' && run.phase !== 'outbound');
-    el['recall-btn'].textContent = run && run.phase === 'working'
-      ? 'Call her back — bank ' + fmt(stake * mult)
-      : (run && run.phase === 'outbound' ? 'Abort (full refund)' : 'Call the boat back');
-    el['launch-btn'].textContent = run ? 'At sea…' : 'Set sail';
+    // One button carries the whole loop: set sail at dock, call her back at sea.
+    var btn = el['action-btn'];
+    var label, disabled = false, mode = '';
+
+    if (!run) {
+      label = blockReason || 'Set sail — ' + fmt(currentStake() + round2(currentStake() * premiumRate()));
+      disabled = !!blockReason;
+    } else if (run.phase === 'outbound') {
+      label = 'Abort — full refund';
+      mode = 'is-abort';
+    } else if (run.phase === 'working') {
+      label = 'Call her back — bank ' + fmt(stake * mult);
+      mode = 'is-recall';
+    } else if (run.phase === 'returning') {
+      label = 'Sailing home…';
+      disabled = true;
+      mode = 'is-recall';
+    } else {
+      label = 'Lost at sea';
+      disabled = true;
+      mode = 'is-recall';
+    }
+
+    if (btn.textContent !== label) btn.textContent = label;
+    btn.disabled = disabled;
+    btn.classList.toggle('is-recall', mode === 'is-recall');
+    btn.classList.toggle('is-abort', mode === 'is-abort');
 
     if (working && run.phase === 'working') {
       var label = step.label;
@@ -1471,6 +1593,35 @@ input[type=range]::-moz-range-thumb {
   }
 
   function setHint(text) { el['stage-hint'].textContent = text; }
+
+  /* ---------------- Collapsible panels ---------------- */
+
+  var PANELS = {
+    launch: { panel: 'panel-launch', gridClass: 'left-collapsed' },
+    side:   { panel: 'panel-side',   gridClass: 'right-collapsed' }
+  };
+
+  function applyCollapsed() {
+    for (var key in PANELS) {
+      var cfg = PANELS[key];
+      var on = !!state.collapsed[key];
+      var panel = document.getElementById(cfg.panel);
+      var btn = panel.querySelector('.collapse-btn');
+      panel.classList.toggle('is-collapsed', on);
+      el.grid.classList.toggle(cfg.gridClass, on);
+      btn.setAttribute('aria-expanded', on ? 'false' : 'true');
+      btn.setAttribute('aria-label', (on ? 'Expand' : 'Collapse') + ' the ' +
+        (key === 'launch' ? 'charter' : 'harbor office') + ' panel');
+    }
+    resizeCanvas();
+  }
+
+  function toggleCollapse(key) {
+    if (!PANELS[key]) return;
+    state.collapsed[key] = !state.collapsed[key];
+    applyCollapsed();
+    save();
+  }
 
   /* ---------------- Canvas scene ---------------- */
 
@@ -1810,9 +1961,14 @@ input[type=range]::-moz-range-thumb {
   /* ---------------- Wiring ---------------- */
 
   function bind() {
-    el['launch-btn'].addEventListener('click', launch);
-    el['recall-btn'].addEventListener('click', function () { recall('manual'); });
+    el['action-btn'].addEventListener('click', function () {
+      if (run) recall('manual'); else launch();
+    });
     el['grant-btn'].addEventListener('click', takeGrant);
+
+    document.querySelectorAll('[data-collapse]').forEach(function (btn) {
+      btn.addEventListener('click', function () { toggleCollapse(btn.dataset.collapse); });
+    });
 
     el.stake.addEventListener('input', function () {
       el['stake-slider'].value = String(currentStake());
@@ -1907,10 +2063,12 @@ input[type=range]::-moz-range-thumb {
     state = load();
     initCanvas();
     bind();
+    applyCollapsed();
     renderAll();
     renderLog();
     setHint(state.stats.voyages
-      ? 'Welcome back. ' + state.stats.voyages + ' voyages sent, ' + state.stats.sunk + ' never came home.'
+      ? 'Welcome back. ' + plural(state.stats.voyages, 'voyage') + ' sent, ' +
+        state.stats.sunk + ' never came home.'
       : 'Stake your funds and send the boat out. Every second at sea grows the haul — and the odds of losing it all.');
     requestAnimationFrame(frame);
   }
@@ -1937,61 +2095,67 @@ input[type=range]::-moz-range-thumb {
   </div>
 </header>
 
-<main class="grid">
+<main class="grid" id="grid">
 
   <!-- ============ LAUNCH PANEL ============ -->
-  <section class="panel" id="panel-launch">
-    <h2 class="panel-title">Charter a voyage</h2>
-
-    <div class="field">
-      <div class="field-head">
-        <label for="stake">Stake</label>
-        <span class="field-note" id="stake-cap-note">max &mdash;</span>
-      </div>
-      <div class="stake-row">
-        <span class="currency">$</span>
-        <input type="number" id="stake" min="10" step="10" value="100" inputmode="numeric">
-      </div>
-      <input type="range" id="stake-slider" min="0" max="1000" value="100" step="1" aria-label="Stake amount">
-      <div class="chip-row">
-        <button class="chip" data-stake="min">Min</button>
-        <button class="chip" data-stake="0.25">25%</button>
-        <button class="chip" data-stake="0.5">50%</button>
-        <button class="chip" data-stake="max">Max</button>
-      </div>
+  <section class="panel collapsible" id="panel-launch">
+    <div class="panel-head">
+      <h2 class="panel-title">Charter a voyage</h2>
+      <button class="collapse-btn" data-collapse="launch" aria-expanded="true"
+              aria-controls="launch-body" aria-label="Collapse the charter panel"></button>
     </div>
+    <span class="rail-label" aria-hidden="true">Charter a voyage</span>
 
-    <div class="field">
-      <div class="field-head"><label>Purpose</label></div>
-      <div id="voyage-list" class="voyage-list"></div>
-    </div>
-
-    <div class="field" id="insurance-field" hidden>
-      <label class="toggle">
-        <input type="checkbox" id="insurance-toggle">
-        <span class="toggle-box"></span>
-        <span class="toggle-text">
-          <strong>Insure this voyage</strong>
-          <em id="insurance-terms">&mdash;</em>
-        </span>
-      </label>
-    </div>
-
-    <div class="field" id="beacon-field" hidden>
-      <div class="field-head">
-        <label for="auto-recall">Beacon auto-recall</label>
-        <span class="field-note">at multiplier</span>
+    <div class="panel-body" id="launch-body">
+      <div class="field">
+        <div class="field-head">
+          <label for="stake">Stake</label>
+          <span class="field-note" id="stake-cap-note">max &mdash;</span>
+        </div>
+        <div class="stake-row">
+          <span class="currency">$</span>
+          <input type="number" id="stake" min="10" step="10" value="100" inputmode="numeric">
+        </div>
+        <input type="range" id="stake-slider" min="0" max="1000" value="100" step="1" aria-label="Stake amount">
+        <div class="chip-row">
+          <button class="chip" data-stake="min">Min</button>
+          <button class="chip" data-stake="0.25">25%</button>
+          <button class="chip" data-stake="0.5">50%</button>
+          <button class="chip" data-stake="max">Max</button>
+        </div>
       </div>
-      <div class="stake-row">
-        <span class="currency">&times;</span>
-        <input type="number" id="auto-recall" min="1.05" step="0.05" placeholder="off" inputmode="decimal">
+
+      <div class="field">
+        <div class="field-head"><label>Purpose</label></div>
+        <div id="voyage-list" class="voyage-list"></div>
       </div>
+
+      <div class="field" id="insurance-field" hidden>
+        <label class="toggle">
+          <input type="checkbox" id="insurance-toggle">
+          <span class="toggle-box"></span>
+          <span class="toggle-text">
+            <strong>Insure this voyage</strong>
+            <em id="insurance-terms">&mdash;</em>
+          </span>
+        </label>
+      </div>
+
+      <div class="field" id="beacon-field" hidden>
+        <div class="field-head">
+          <label for="auto-recall">Beacon auto-recall</label>
+          <span class="field-note">at multiplier</span>
+        </div>
+        <div class="stake-row">
+          <span class="currency">&times;</span>
+          <input type="number" id="auto-recall" min="1.05" step="0.05" placeholder="off" inputmode="decimal">
+        </div>
+      </div>
+
+      <div class="cost-summary" id="cost-summary"></div>
+
+      <button class="ghost" id="grant-btn" hidden>Accept a harbor grant ($100)</button>
     </div>
-
-    <div class="cost-summary" id="cost-summary"></div>
-
-    <button class="primary" id="launch-btn">Set sail</button>
-    <button class="ghost" id="grant-btn" hidden>Accept a harbor grant ($100)</button>
   </section>
 
   <!-- ============ STAGE ============ -->
@@ -2029,29 +2193,38 @@ input[type=range]::-moz-range-thumb {
       <div class="risk-note" id="risk-note">No instruments aboard &mdash; fit a Storm Glass to read exact odds.</div>
     </div>
 
-    <button class="primary danger-btn" id="recall-btn" disabled>Call the boat back</button>
+    <button class="primary action-btn" id="action-btn">Set sail</button>
     <p class="stage-hint" id="stage-hint">Stake your funds and send the boat out. Every second at sea grows the haul &mdash; and the odds of losing it all.</p>
   </section>
 
   <!-- ============ SIDE PANEL ============ -->
-  <section class="panel" id="panel-side">
-    <div class="tabs" role="tablist">
-      <button class="tab is-active" data-tab="shipyard" role="tab">Shipyard</button>
-      <button class="tab" data-tab="log" role="tab">Log</button>
-      <button class="tab" data-tab="stats" role="tab">Records</button>
+  <section class="panel collapsible" id="panel-side">
+    <div class="panel-head">
+      <h2 class="panel-title">Harbor office</h2>
+      <button class="collapse-btn" data-collapse="side" aria-expanded="true"
+              aria-controls="side-body" aria-label="Collapse the harbor office panel"></button>
     </div>
+    <span class="rail-label" aria-hidden="true">Harbor office</span>
 
-    <div class="tab-body is-active" data-panel="shipyard">
-      <div id="upgrade-list" class="upgrade-list"></div>
-    </div>
+    <div class="panel-body" id="side-body">
+      <div class="tabs" role="tablist">
+        <button class="tab is-active" data-tab="shipyard" role="tab">Shipyard</button>
+        <button class="tab" data-tab="log" role="tab">Log</button>
+        <button class="tab" data-tab="stats" role="tab">Records</button>
+      </div>
 
-    <div class="tab-body" data-panel="log">
-      <ul id="log" class="log"></ul>
-    </div>
+      <div class="tab-body is-active" data-panel="shipyard">
+        <div id="upgrade-list" class="upgrade-list"></div>
+      </div>
 
-    <div class="tab-body" data-panel="stats">
-      <dl id="stats" class="stats"></dl>
-      <button class="ghost small" id="reset-btn">Scuttle the fleet (reset save)</button>
+      <div class="tab-body" data-panel="log">
+        <ul id="log" class="log"></ul>
+      </div>
+
+      <div class="tab-body" data-panel="stats">
+        <dl id="stats" class="stats"></dl>
+        <button class="ghost small" id="reset-btn">Scuttle the fleet (reset save)</button>
+      </div>
     </div>
   </section>
 </main>
