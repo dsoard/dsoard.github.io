@@ -792,6 +792,18 @@ body.personal .personal-grid {
 
 .personal-note li:last-child { border-bottom: 0; }
 
+.personal-note li a {
+  color: var(--text);
+  text-decoration: none;
+  border-bottom: 1px solid var(--accent);
+  padding-bottom: 1px;
+  transition: color .15s ease, border-color .15s ease;
+}
+
+.personal-note li a:hover {
+  color: var(--accent);
+}
+
 .warm-button {
   display: inline-block;
   margin-top: 24px;

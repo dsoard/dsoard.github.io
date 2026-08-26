@@ -1,0 +1,2079 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Harborlight — sponsor a sailboat, stake your funds, and decide when to call it home.">
+<meta name="author" content="David Soard">
+<meta name="copyright" content="Copyright (c) 2026 David Soard. All rights reserved.">
+<title>Harborlight | David Soard</title>
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+CiAgPHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTQiIGZpbGw9IiMwYTFhMmIiLz4KICA8cGF0aCBkPSJNOCA0Nmg0OGwtNiA4SDE0eiIgZmlsbD0iIzBiM2E1MiIvPgogIDxwYXRoIGQ9Ik0zNCAxMmwxNCAyNEgzNHoiIGZpbGw9IiNmMGY0ZjgiLz4KICA8cGF0aCBkPSJNMzAgMThMMTggMzZoMTJ6IiBmaWxsPSIjNGZkMWM1Ii8+CiAgPHJlY3QgeD0iMzEiIHk9IjEwIiB3aWR0aD0iMiIgaGVpZ2h0PSIyOCIgZmlsbD0iI2Q4YzlhZSIvPgogIDxwYXRoIGQ9Ik0xNCAzOGgzNmwtNSA4SDE5eiIgZmlsbD0iIzhhNWEzNCIvPgogIDxjaXJjbGUgY3g9IjUyIiBjeT0iMTQiIHI9IjQiIGZpbGw9IiNmMmMxNGUiLz4KPC9zdmc+Cg==" type="image/svg+xml">
+<style>
+/* =========================================================
+   HARBORLIGHT — a sailboat venture
+   Copyright (c) 2026 David Soard. All rights reserved.
+   ========================================================= */
+
+:root {
+  --bg: #060a0f;
+  --surface: #0d141c;
+  --surface-2: #131e29;
+  --line: rgba(255,255,255,.09);
+  --line-strong: rgba(255,255,255,.16);
+  --text: #eef3f8;
+  --muted: #8b9aab;
+  --accent: #4fd1c5;
+  --accent-soft: rgba(79,209,197,.14);
+  --gold: #f2c14e;
+  --danger: #ef5b5b;
+  --good: #37c98b;
+  --font: "Segoe UI", Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono: "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace;
+  --radius: 14px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--font);
+  background:
+    radial-gradient(1200px 600px at 50% -10%, #10222f 0%, transparent 60%),
+    var(--bg);
+  color: var(--text);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+button { font-family: inherit; -webkit-tap-highlight-color: transparent; }
+input { font-family: inherit; }
+
+/* ---------------- Top bar ---------------- */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 16px clamp(16px, 4vw, 40px);
+  border-bottom: 1px solid var(--line);
+  background: rgba(6,10,15,.7);
+  backdrop-filter: blur(14px);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.brand { display: flex; align-items: center; gap: 12px; }
+
+.brand-mark {
+  font-size: 24px;
+  line-height: 1;
+  filter: drop-shadow(0 0 12px rgba(79,209,197,.5));
+}
+
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  font-weight: 800;
+  letter-spacing: .04em;
+  font-size: 17px;
+}
+
+.brand-text em {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.topbar-right { display: flex; align-items: center; gap: 14px; }
+
+.bank { text-align: right; line-height: 1.2; }
+
+.bank-label {
+  display: block;
+  font-size: 10px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.bank strong {
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+  color: var(--gold);
+  transition: color .2s ease;
+}
+
+.bank strong.flash-up { color: var(--good); }
+.bank strong.flash-down { color: var(--danger); }
+
+.status-pill {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  padding: 7px 13px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.status-pill[data-phase="working"] { color: var(--accent); border-color: rgba(79,209,197,.45); background: var(--accent-soft); }
+.status-pill[data-phase="outbound"],
+.status-pill[data-phase="returning"] { color: var(--gold); border-color: rgba(242,193,78,.4); }
+.status-pill[data-phase="sunk"] { color: var(--danger); border-color: rgba(239,91,91,.5); background: rgba(239,91,91,.12); }
+
+/* ---------------- Layout ---------------- */
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr) minmax(260px, 340px);
+  gap: 18px;
+  align-items: start;
+  padding: 18px clamp(14px, 3vw, 32px);
+  max-width: 1500px;
+  margin: 0 auto;
+}
+
+.panel {
+  background: linear-gradient(180deg, var(--surface) 0%, #0a1119 100%);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px;
+}
+
+.panel-title {
+  margin: 0 0 16px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* ---------------- Fields ---------------- */
+
+.field { margin-bottom: 18px; }
+
+.field-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 7px;
+}
+
+.field-head label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.field-note { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.stake-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  padding: 9px 12px;
+  transition: border-color .15s ease;
+}
+
+.stake-row:focus-within { border-color: var(--accent); }
+
+.currency { color: var(--muted); font-weight: 700; }
+
+.stake-row input {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-size: 19px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.stake-row input::-webkit-outer-spin-button,
+.stake-row input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.stake-row input[type=number] { -moz-appearance: textfield; }
+
+input[type=range] {
+  width: 100%;
+  margin: 12px 0 10px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: none;
+}
+
+input[type=range]::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--line-strong);
+}
+input[type=range]::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--line-strong);
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px; height: 16px;
+  margin-top: -6px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 0 0 4px rgba(79,209,197,.16);
+}
+input[type=range]::-moz-range-thumb {
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: none;
+  cursor: pointer;
+}
+
+.chip-row { display: flex; gap: 6px; }
+
+.chip {
+  flex: 1;
+  padding: 7px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  color: var(--muted);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all .15s ease;
+}
+
+.chip:hover { color: var(--text); border-color: var(--line-strong); }
+
+/* ---------------- Voyage cards ---------------- */
+
+.voyage-list { display: flex; flex-direction: column; gap: 8px; }
+
+.voyage {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  width: 100%;
+  text-align: left;
+  padding: 11px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--text);
+  cursor: pointer;
+  transition: all .15s ease;
+}
+
+.voyage:hover { border-color: var(--line-strong); }
+
+.voyage.is-active {
+  border-color: var(--accent);
+  background: linear-gradient(180deg, rgba(79,209,197,.12), rgba(79,209,197,.04));
+}
+
+.voyage.is-locked { opacity: .62; cursor: default; }
+.voyage.is-locked:hover { border-color: var(--line); }
+.voyage.is-affordable { opacity: 1; }
+
+.voyage-icon { font-size: 19px; line-height: 1.25; }
+
+.voyage-body { flex: 1; min-width: 0; }
+
+.voyage-name { display: block; font-size: 13px; font-weight: 700; }
+
+.voyage-meta {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.voyage-charter {
+  margin-top: 6px;
+  padding: 5px 9px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--bg);
+  background: var(--gold);
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.voyage-charter:disabled { background: var(--line-strong); color: var(--muted); cursor: default; }
+
+/* ---------------- Toggle ---------------- */
+
+.toggle { display: flex; align-items: flex-start; gap: 11px; cursor: pointer; }
+.toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
+
+.toggle-box {
+  flex: none;
+  width: 18px; height: 18px;
+  margin-top: 2px;
+  border-radius: 5px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface-2);
+  position: relative;
+  transition: all .15s ease;
+}
+
+.toggle input:checked + .toggle-box { background: var(--accent); border-color: var(--accent); }
+
+.toggle input:checked + .toggle-box::after {
+  content: "";
+  position: absolute;
+  left: 5px; top: 1px;
+  width: 5px; height: 10px;
+  border: solid var(--bg);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.toggle-text strong { display: block; font-size: 13px; }
+.toggle-text em { font-style: normal; font-size: 11px; color: var(--muted); }
+
+/* ---------------- Buttons ---------------- */
+
+.cost-summary {
+  font-size: 11.5px;
+  color: var(--muted);
+  min-height: 34px;
+  margin-bottom: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cost-summary b { color: var(--text); font-weight: 700; }
+
+.primary {
+  width: 100%;
+  padding: 13px;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: #04222b;
+  background: linear-gradient(180deg, #6fe3d8, var(--accent));
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: filter .15s ease, opacity .15s ease;
+}
+
+.primary:hover:not(:disabled) { filter: brightness(1.08); }
+.primary:disabled { opacity: .4; cursor: default; }
+
+.danger-btn {
+  color: #2c0808;
+  background: linear-gradient(180deg, #ff8b7a, #ef5b5b);
+}
+
+.ghost {
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  background: none;
+  border: 1px dashed var(--line-strong);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all .15s ease;
+}
+
+.ghost:hover { color: var(--text); border-color: var(--muted); }
+.ghost.small { font-size: 11px; padding: 8px; margin-top: 16px; }
+
+/* ---------------- Stage ---------------- */
+
+.stage { display: flex; flex-direction: column; gap: 14px; }
+
+.sea-wrap {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: #071018;
+}
+
+#sea { display: block; width: 100%; height: 300px; }
+
+.sea-overlay { position: absolute; inset: 0; pointer-events: none; }
+
+.float-msg {
+  position: absolute;
+  transform: translate(-50%, 0);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .02em;
+  text-shadow: 0 2px 8px rgba(0,0,0,.8);
+  white-space: nowrap;
+  animation: floatUp 1.9s ease-out forwards;
+}
+
+.float-msg.good { color: var(--good); }
+.float-msg.gold { color: var(--gold); }
+.float-msg.bad  { color: var(--danger); }
+.float-msg.info { color: var(--accent); }
+
+@keyframes floatUp {
+  0%   { opacity: 0; transform: translate(-50%, 8px); }
+  15%  { opacity: 1; transform: translate(-50%, 0); }
+  100% { opacity: 0; transform: translate(-50%, -46px); }
+}
+
+.readouts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.readout {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 9px 11px;
+}
+
+.readout-label {
+  display: block;
+  font-size: 9.5px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.readout strong {
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+}
+
+.readout .gold { color: var(--gold); }
+
+.risk { }
+
+.risk-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+#risk-label { color: var(--good); transition: color .3s ease; }
+
+.risk-track {
+  height: 7px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.risk-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--good), var(--gold) 55%, var(--danger));
+  transition: width .18s linear;
+}
+
+.risk-note { margin-top: 6px; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.stage-hint { margin: 0; font-size: 12px; color: var(--muted); text-align: center; min-height: 36px; }
+
+/* ---------------- Tabs / side ---------------- */
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  margin-bottom: 14px;
+}
+
+.tab {
+  flex: 1;
+  padding: 7px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: none;
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all .15s ease;
+}
+
+.tab.is-active { color: var(--text); background: rgba(255,255,255,.07); }
+
+.tab-body { display: none; }
+.tab-body.is-active { display: block; }
+
+.upgrade-list { display: flex; flex-direction: column; gap: 9px; }
+
+.upgrade {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 11px 12px;
+}
+
+.upgrade.is-max { border-color: rgba(79,209,197,.35); }
+
+.upgrade-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.upgrade-name { font-size: 13px; font-weight: 700; }
+
+.upgrade-tier {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .1em;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.upgrade-desc { font-size: 11.5px; color: var(--muted); margin: 4px 0 9px; }
+
+.upgrade-buy {
+  width: 100%;
+  padding: 8px;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  color: #04222b;
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: filter .15s ease;
+}
+
+.upgrade-buy:hover:not(:disabled) { filter: brightness(1.08); }
+.upgrade-buy:disabled { background: var(--line-strong); color: var(--muted); cursor: default; }
+.upgrade-buy.maxed { background: none; border: 1px solid rgba(79,209,197,.35); color: var(--accent); }
+
+.log {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 460px;
+  overflow-y: auto;
+  font-size: 12px;
+}
+
+.log li {
+  padding: 7px 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  display: flex;
+  gap: 8px;
+}
+
+.log li:last-child { border-bottom: none; }
+.log .log-tick { flex: none; font-variant-numeric: tabular-nums; opacity: .55; font-size: 10.5px; padding-top: 1px; }
+.log .good { color: var(--good); }
+.log .bad { color: var(--danger); }
+.log .gold { color: var(--gold); }
+.log .info { color: var(--accent); }
+
+.stats { margin: 0; display: grid; grid-template-columns: 1fr auto; gap: 0; font-size: 12.5px; }
+
+.stats dt { color: var(--muted); padding: 7px 0; border-bottom: 1px solid var(--line); }
+.stats dd {
+  margin: 0;
+  padding: 7px 0;
+  text-align: right;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  border-bottom: 1px solid var(--line);
+}
+
+/* ---------------- How-to + footer ---------------- */
+
+.howto {
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 0 clamp(14px, 3vw, 32px) 8px;
+}
+
+.howto summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 12px 0;
+  list-style: none;
+}
+
+.howto summary::-webkit-details-marker { display: none; }
+.howto summary::before { content: "+ "; color: var(--accent); }
+.howto[open] summary::before { content: "\2212 "; }
+.howto summary:hover { color: var(--text); }
+
+.howto-body {
+  border-left: 2px solid var(--line-strong);
+  padding-left: 16px;
+  font-size: 13px;
+  color: var(--muted);
+  max-width: 70ch;
+}
+
+.howto-body p { margin: 0 0 10px; }
+.howto-body strong { color: var(--text); }
+
+.site-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 22px clamp(14px, 3vw, 32px) 40px;
+  font-size: 11.5px;
+  color: var(--muted);
+  border-top: 1px solid var(--line);
+}
+
+.site-footer .copyright { color: var(--muted); }
+
+.site-footer a { color: var(--muted); text-decoration: none; }
+.site-footer a:hover { color: var(--accent); }
+
+/* ---------------- Responsive ---------------- */
+
+@media (max-width: 1080px) {
+  .grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  #panel-stage { grid-column: 1 / -1; order: -1; }
+}
+
+@media (max-width: 720px) {
+  .grid { grid-template-columns: minmax(0, 1fr); }
+  #sea { height: 220px; }
+  .readouts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bank strong { font-size: 19px; }
+  .topbar { padding: 12px 16px; }
+}
+
+</style>
+<script>
+/* =========================================================
+   HARBORLIGHT — a sailboat venture
+   Copyright (c) 2026 David Soard. All rights reserved.
+   ---------------------------------------------------------
+   Stake your bank, send the boat out, and decide when to
+   call it home. Every second at sea compounds the haul and
+   raises the odds the sea keeps it.
+   ========================================================= */
+
+(function () {
+  'use strict';
+
+  /* ------------------------------------------------------
+     Balance constants
+     ------------------------------------------------------
+     The multiplier grows as exp(growth * t). The per-second
+     hazard rate is (hazard + ramp * t) * (1 + weight * haul),
+     so danger accelerates on two fronts: time at sea, and how
+     heavy the hold is riding. That second term is what keeps
+     the game honest — every upgrade that grows the haul faster
+     also pays for itself in risk, so no loadout ever turns the
+     sea into a sure thing.
+
+     Simulated: an unupgraded fishing trip peaks in expected
+     value around 45s at x1.20 with a 61% chance of getting
+     home. Fully fitted out, the peak moves to ~65s and x1.87.
+     Night cargo runs peak highest and survive least.
+     ------------------------------------------------------ */
+
+  var BASE = { growth: 0.0130, hazard: 0.0050, ramp: 0.00018, weight: 0.30 };
+
+  var SAVE_KEY   = 'harborlight.save.v1';
+  var START_BANK = 500;
+  var MIN_STAKE  = 10;
+  var GRANT      = 100;
+
+  var OUTBOUND_MS = 1300;
+  var RETURN_MS   = 1700;
+  var SINK_MS     = 2400;
+
+  /* ---------------- Voyage types ---------------- */
+
+  var VOYAGES = [
+    {
+      id: 'fishing', name: 'Coastal Fishing', icon: '🎣', charter: 0,
+      g: 1.00, h: 1.00, k: 1.00, eventRate: 1.00, treasure: 0.30,
+      blurb: 'Steady nets, honest water.'
+    },
+    {
+      id: 'trawling', name: 'Deep Trawling', icon: '🚢', charter: 1500,
+      g: 1.55, h: 1.35, k: 1.30, eventRate: 1.10, treasure: 0.25,
+      blurb: 'Heavier hauls, heavier seas.'
+    },
+    {
+      id: 'salvage', name: 'Salvage Diving', icon: '⚓', charter: 9000,
+      g: 0.78, h: 0.70, k: 0.55, eventRate: 1.60, treasure: 0.75,
+      blurb: 'Slow work, but wrecks pay in bursts.'
+    },
+    {
+      id: 'cargo', name: 'Night Cargo Runs', icon: '📦', charter: 45000,
+      g: 2.40, h: 1.55, k: 2.20, eventRate: 0.85, treasure: 0.20,
+      blurb: 'No questions asked. No second chances.'
+    }
+  ];
+
+  /* ---------------- Upgrades ---------------- */
+
+  var HOLD_FRAC  = [0.40, 0.60, 0.80, 1.00];
+  var INS_COVER  = [0, 0.40, 0.60, 0.80];
+  var INS_PREM   = [0, 0.05, 0.07, 0.09];
+
+  var UPGRADES = [
+    {
+      id: 'hull', name: 'Reinforced Hull', costs: [350, 1400, 5600],
+      blurb: 'Oak ribs and a copper skin. Cuts the constant background risk of open water.',
+      effect: function (l) { return l ? 'Base risk −' + Math.round(l * 12) + '%' : null; },
+      next: function (l) { return 'Base risk −' + Math.round((l + 1) * 12) + '% total'; }
+    },
+    {
+      id: 'glass', name: 'Storm Glass', costs: [500, 2000, 8000],
+      blurb: 'A barometer and a good chart. Blunts how fast danger climbs the longer you stay out — and puts real numbers on the instrument panel.',
+      effect: function (l) { return l ? 'Risk ramp −' + Math.round(l * 15) + '% · instruments live' : null; },
+      next: function (l) { return 'Risk ramp −' + Math.round((l + 1) * 15) + '% total'; }
+    },
+    {
+      id: 'sonar', name: 'Sonar Array', costs: [300, 1200, 4800],
+      blurb: 'Finds the shoal instead of hunting for it. The haul compounds faster every second — though a fuller hold rides lower, so the risk climbs with it.',
+      effect: function (l) { return l ? 'Haul growth +' + Math.round(l * 10) + '%' : null; },
+      next: function (l) { return 'Haul growth +' + Math.round((l + 1) * 10) + '% total'; }
+    },
+    {
+      id: 'hold', name: 'Larger Hold', costs: [250, 1000, 4000],
+      blurb: 'More gear aboard means more of your bank can ride on a single trip.',
+      effect: function (l) { return 'Stake up to ' + Math.round(HOLD_FRAC[l] * 100) + '% of bank'; },
+      next: function (l) { return 'Stake up to ' + Math.round(HOLD_FRAC[l + 1] * 100) + '% of bank'; }
+    },
+    {
+      id: 'insurance', name: 'Insurance Policy', costs: [750, 3000, 12000],
+      blurb: 'An underwriter at the harbor office. Refunds part of your stake if the boat goes down — for a premium charged at launch. The haul is never covered.',
+      effect: function (l) {
+        return l ? 'Refunds ' + Math.round(INS_COVER[l] * 100) + '% of stake · ' +
+          Math.round(INS_PREM[l] * 100) + '% premium' : null;
+      },
+      next: function (l) {
+        return 'Refunds ' + Math.round(INS_COVER[l + 1] * 100) + '% of stake for a ' +
+          Math.round(INS_PREM[l + 1] * 100) + '% premium';
+      }
+    },
+    {
+      id: 'beacon', name: 'Radio Beacon', costs: [2500],
+      blurb: 'Set a multiplier before you launch and the boat turns for home the moment it hits — whether or not you are watching.',
+      effect: function (l) { return l ? 'Auto-recall armed' : null; },
+      next: function () { return 'Unlocks auto-recall at a target multiplier'; }
+    }
+  ];
+
+  /* ---------------- Random events ---------------- */
+
+  var EVENTS = [
+    { id: 'shoal',    weight: 22, treasure: false, tone: 'gold',
+      text: 'A shoal breaks the surface',
+      apply: function (r) { var b = 1.05 + Math.random() * 0.09; r.mult *= b; return '+' + pct(b - 1) + ' haul'; } },
+    { id: 'crate',    weight: 10, treasure: true, tone: 'gold',
+      text: 'Something heavy comes up on the line',
+      apply: function (r) { var b = 1.15 + Math.random() * 0.23; r.mult *= b; return '+' + pct(b - 1) + ' haul'; } },
+    { id: 'calm',     weight: 14, treasure: false, tone: 'good',
+      text: 'The water goes glassy',
+      apply: function (r) { addMod(r, 'hazard', 0.55, 8); return 'risk halved for 8s'; } },
+    { id: 'current',  weight: 12, treasure: false, tone: 'info',
+      text: 'A warm current runs through the grounds',
+      apply: function (r) { addMod(r, 'growth', 1.55, 7); return 'haul growth up for 7s'; } },
+    { id: 'squall',   weight: 20, treasure: false, tone: 'bad',
+      text: 'A squall rolls in off the cape',
+      apply: function (r) { addMod(r, 'hazard', 2.10, 10); return 'risk doubled for 10s'; } },
+    { id: 'tear',     weight: 14, treasure: false, tone: 'bad',
+      text: 'A net tears and part of the catch spills',
+      apply: function (r) { var b = 0.10 + Math.random() * 0.08; r.mult *= (1 - b); return '−' + pct(b) + ' haul'; } },
+    { id: 'becalmed', weight: 12, treasure: false, tone: 'bad',
+      text: 'The wind dies and she sits becalmed',
+      apply: function (r) { addMod(r, 'growth', 0.35, 8); return 'haul growth stalled 8s'; } },
+    { id: 'patrol',   weight: 8, treasure: false, tone: 'bad', only: 'cargo',
+      text: 'A patrol light sweeps the water',
+      apply: function (r) { addMod(r, 'hazard', 2.40, 6); return 'risk spiking for 6s'; } }
+  ];
+
+  /* ---------------- State ---------------- */
+
+  var state = null;
+  var run = null;
+  var dirty = true;
+
+  function defaultState() {
+    return {
+      bank: START_BANK,
+      upgrades: { hull: 0, glass: 0, sonar: 0, hold: 0, insurance: 0, beacon: 0 },
+      chartered: { fishing: true },
+      selected: 'fishing',
+      insureOn: false,
+      autoRecall: null,
+      stats: {
+        voyages: 0, sunk: 0, recalled: 0,
+        bestReturn: 0, bestMult: 1, longestTrip: 0,
+        earned: 0, lost: 0, insurancePaid: 0, insuranceRecovered: 0,
+        grants: 0, peakBank: START_BANK
+      },
+      log: []
+    };
+  }
+
+  function load() {
+    var s = defaultState();
+    try {
+      var raw = localStorage.getItem(SAVE_KEY);
+      if (raw) {
+        var saved = JSON.parse(raw);
+        if (saved && typeof saved === 'object') {
+          s.bank = num(saved.bank, START_BANK);
+          merge(s.upgrades, saved.upgrades);
+          merge(s.chartered, saved.chartered);
+          merge(s.stats, saved.stats);
+          s.chartered.fishing = true;
+          if (saved.selected) s.selected = saved.selected;
+          s.insureOn = !!saved.insureOn;
+          s.autoRecall = saved.autoRecall != null ? num(saved.autoRecall, null) : null;
+          if (Array.isArray(saved.log)) s.log = saved.log.slice(-60);
+        }
+      }
+    } catch (e) { /* corrupt or unavailable storage — start fresh */ }
+    if (!s.chartered[s.selected]) s.selected = 'fishing';
+    return s;
+  }
+
+  function save() {
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
+  }
+
+  function merge(target, src) {
+    if (!src || typeof src !== 'object') return;
+    for (var k in target) {
+      if (Object.prototype.hasOwnProperty.call(src, k)) {
+        var v = src[k];
+        if (typeof target[k] === 'number') target[k] = num(v, target[k]);
+        else if (typeof target[k] === 'boolean') target[k] = !!v;
+      }
+    }
+    for (var j in src) {
+      if (!Object.prototype.hasOwnProperty.call(target, j) && typeof src[j] === 'boolean') target[j] = !!src[j];
+    }
+  }
+
+  function num(v, fallback) {
+    var n = typeof v === 'number' ? v : parseFloat(v);
+    return isFinite(n) ? n : fallback;
+  }
+
+  /* ---------------- Derived values ---------------- */
+
+  function voyage(id) {
+    for (var i = 0; i < VOYAGES.length; i++) if (VOYAGES[i].id === id) return VOYAGES[i];
+    return VOYAGES[0];
+  }
+
+  function growthRate(v) {
+    return BASE.growth * v.g * (1 + 0.10 * state.upgrades.sonar);
+  }
+
+  function hazardBase(v) {
+    return BASE.hazard * v.h * (1 - 0.12 * state.upgrades.hull);
+  }
+
+  function hazardRamp(v) {
+    return BASE.ramp * v.k * (1 - 0.15 * state.upgrades.glass);
+  }
+
+  function hazardAt(r, t) {
+    var v = voyage(r.type);
+    // Time at sea raises the base risk; a heavy hold raises it again.
+    var h = (hazardBase(v) + hazardRamp(v) * t) * (1 + BASE.weight * (r.mult - 1));
+    return h * modFactor(r, 'hazard');
+  }
+
+  function modFactor(r, type) {
+    var f = 1;
+    for (var i = 0; i < r.mods.length; i++) if (r.mods[i].type === type) f *= r.mods[i].factor;
+    return f;
+  }
+
+  function addMod(r, type, factor, seconds) {
+    r.mods.push({ type: type, factor: factor, until: r.t + seconds });
+  }
+
+  function holdFrac() { return HOLD_FRAC[state.upgrades.hold]; }
+  function coverage() { return INS_COVER[state.upgrades.insurance]; }
+  function premiumRate() { return state.insureOn && state.upgrades.insurance > 0 ? INS_PREM[state.upgrades.insurance] : 0; }
+
+  function maxStake() {
+    var byHold = Math.floor(state.bank * holdFrac());
+    var byCash = Math.floor(state.bank / (1 + premiumRate()));
+    return Math.max(0, Math.min(byHold, byCash));
+  }
+
+  function hasInstruments() { return state.upgrades.glass > 0; }
+
+  /* ---------------- Formatting ---------------- */
+
+  function fmt(v) {
+    var sign = v < 0 ? '-' : '';
+    var a = Math.abs(v);
+    if (a >= 1e9) return sign + '$' + (a / 1e9).toFixed(2) + 'B';
+    if (a >= 1e6) return sign + '$' + (a / 1e6).toFixed(2) + 'M';
+    if (a >= 1e4) return sign + '$' + Math.round(a).toLocaleString('en-US');
+    return sign + '$' + a.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function pct(v) { return Math.round(v * 100) + '%'; }
+  function round2(v) { return Math.round(v * 100) / 100; }
+
+  /* ---------------- DOM ---------------- */
+
+  var el = {};
+  function $(id) { return document.getElementById(id); }
+
+  function cacheDom() {
+    ['bank', 'status-pill', 'stake', 'stake-slider', 'stake-cap-note', 'voyage-list',
+     'insurance-field', 'insurance-toggle', 'insurance-terms', 'beacon-field', 'auto-recall',
+     'cost-summary', 'launch-btn', 'grant-btn', 'sea', 'sea-overlay',
+     'r-time', 'r-mult', 'r-haul', 'r-value', 'risk-fill', 'risk-label', 'risk-note',
+     'recall-btn', 'stage-hint', 'upgrade-list', 'log', 'stats', 'reset-btn'
+    ].forEach(function (id) { el[id] = $(id); });
+  }
+
+  /* ---------------- Log ---------------- */
+
+  function logMsg(text, tone) {
+    state.log.push({ v: state.stats.voyages, t: text, c: tone || '' });
+    if (state.log.length > 60) state.log.shift();
+    renderLog();
+  }
+
+  function renderLog() {
+    var html = '';
+    for (var i = state.log.length - 1; i >= 0; i--) {
+      var e = state.log[i];
+      html += '<li><span class="log-tick">' + (e.v ? '#' + e.v : '—') + '</span>' +
+              '<span class="' + (e.c || '') + '">' + e.t + '</span></li>';
+    }
+    el.log.innerHTML = html || '<li><span class="log-tick">—</span><span>No voyages yet.</span></li>';
+  }
+
+  /* ---------------- Floating messages ---------------- */
+
+  function floatMsg(text, tone) {
+    var d = document.createElement('div');
+    d.className = 'float-msg ' + (tone || 'info');
+    d.textContent = text;
+    d.style.left = Math.round(scene.boatX) + 'px';
+    d.style.top = Math.round(scene.boatY - 34) + 'px';
+    el['sea-overlay'].appendChild(d);
+    setTimeout(function () { if (d.parentNode) d.parentNode.removeChild(d); }, 2000);
+  }
+
+  /* ---------------- Bank ---------------- */
+
+  function addBank(amount) {
+    state.bank = round2(state.bank + amount);
+    if (state.bank > state.stats.peakBank) state.stats.peakBank = state.bank;
+    el.bank.classList.remove('flash-up', 'flash-down');
+    void el.bank.offsetWidth;
+    el.bank.classList.add(amount >= 0 ? 'flash-up' : 'flash-down');
+    dirty = true;
+  }
+
+  /* ---------------- Rendering: launch panel ---------------- */
+
+  function renderVoyages() {
+    var html = '';
+    for (var i = 0; i < VOYAGES.length; i++) {
+      var v = VOYAGES[i];
+      var owned = !!state.chartered[v.id];
+      var active = owned && state.selected === v.id;
+      var afford = state.bank >= v.charter;
+      var cls = 'voyage' + (active ? ' is-active' : '') + (owned ? '' : ' is-locked') +
+                (!owned && afford ? ' is-affordable' : '');
+      var meta = owned
+        ? 'Growth ×' + v.g.toFixed(2) + ' · Risk ×' + v.h.toFixed(2) + ' · Ramp ×' + v.k.toFixed(2)
+        : v.blurb;
+      html += '<div class="' + cls + '" data-voyage="' + v.id + '">' +
+                '<span class="voyage-icon">' + v.icon + '</span>' +
+                '<span class="voyage-body">' +
+                  '<span class="voyage-name">' + v.name + '</span>' +
+                  '<span class="voyage-meta">' + meta + '</span>' +
+                  (owned ? '' : '<button class="voyage-charter" data-charter="' + v.id + '"' +
+                    (afford ? '' : ' disabled') + '>Charter — ' + fmt(v.charter) + '</button>') +
+                '</span>' +
+              '</div>';
+    }
+    el['voyage-list'].innerHTML = html;
+  }
+
+  function renderInsurance() {
+    var lvl = state.upgrades.insurance;
+    el['insurance-field'].hidden = lvl === 0;
+    if (lvl > 0) {
+      el['insurance-terms'].textContent = 'Premium ' + pct(INS_PREM[lvl]) + ' of stake, refunds ' +
+        pct(INS_COVER[lvl]) + ' of stake if she sinks';
+      el['insurance-toggle'].checked = state.insureOn;
+    }
+    el['beacon-field'].hidden = state.upgrades.beacon === 0;
+    if (state.upgrades.beacon > 0 && document.activeElement !== el['auto-recall']) {
+      el['auto-recall'].value = state.autoRecall != null ? state.autoRecall : '';
+    }
+  }
+
+  function renderStakeControls() {
+    var cap = maxStake();
+    el['stake-cap-note'].textContent = 'max ' + fmt(cap) + ' (' + pct(holdFrac()) + ' of bank)';
+    el['stake-slider'].max = String(Math.max(MIN_STAKE, cap));
+    el['stake-slider'].min = String(Math.min(MIN_STAKE, Math.max(0, cap)));
+    var s = currentStake();
+    if (document.activeElement !== el.stake) el.stake.value = s > 0 ? String(s) : '';
+    el['stake-slider'].value = String(s);
+  }
+
+  function currentStake() {
+    var v = Math.floor(num(el.stake.value, 0));
+    return isFinite(v) && v > 0 ? v : 0;
+  }
+
+  function renderCost() {
+    var stake = currentStake();
+    var cap = maxStake();
+
+    if (run) {
+      // A voyage is in flight — the panel reports on her, not on the next stake.
+      var rv = voyage(run.type);
+      el['cost-summary'].innerHTML =
+        '<b>' + rv.name + '</b> is at sea with ' + fmt(run.stake) + ' staked' +
+        (run.premium > 0 ? ' and ' + fmt(run.premium) + ' insured' : '') + '.<br>' +
+        (run.target ? 'Beacon set to bring her home at ×' + run.target.toFixed(2) + '.'
+                    : 'Call her back whenever you like.');
+      el['launch-btn'].disabled = true;
+      el['grant-btn'].hidden = true;
+      return;
+    }
+
+    var prem = round2(stake * premiumRate());
+    var v = voyage(state.selected);
+    var lines = [];
+
+    if (stake > 0) {
+      lines.push('Leaves your bank now: <b>' + fmt(stake + prem) + '</b>' +
+        (prem > 0 ? ' (stake ' + fmt(stake) + ' + premium ' + fmt(prem) + ')' : ''));
+      if (premiumRate() > 0) {
+        lines.push('If she sinks you keep <b>' + fmt(round2(stake * coverage())) + '</b> of the stake.');
+      }
+      var g = growthRate(v);
+      lines.push('At this rate the haul doubles in about <b>' + Math.round(Math.LN2 / g) + 's</b>.');
+    } else {
+      lines.push('Choose a stake to see the terms.');
+    }
+
+    var can = stake >= MIN_STAKE && stake <= cap && !run;
+    el['launch-btn'].disabled = !can;
+    if (stake > 0 && stake < MIN_STAKE) lines.push('<b>Minimum stake is ' + fmt(MIN_STAKE) + '.</b>');
+    else if (stake > cap) lines.push('<b>That is more than the hold can carry.</b>');
+
+    el['cost-summary'].innerHTML = lines.join('<br>');
+
+    var broke = !run && maxStake() < MIN_STAKE;
+    el['grant-btn'].hidden = !broke;
+  }
+
+  function renderUpgrades() {
+    var html = '';
+    for (var i = 0; i < UPGRADES.length; i++) {
+      var u = UPGRADES[i];
+      var lvl = state.upgrades[u.id];
+      var maxed = lvl >= u.costs.length;
+      var cost = maxed ? 0 : u.costs[lvl];
+      var eff = u.effect(lvl);
+      html += '<div class="upgrade' + (maxed ? ' is-max' : '') + '">' +
+                '<div class="upgrade-head">' +
+                  '<span class="upgrade-name">' + u.name + '</span>' +
+                  '<span class="upgrade-tier">' + (u.costs.length > 1
+                      ? 'TIER ' + lvl + '/' + u.costs.length
+                      : (lvl ? 'FITTED' : 'NOT FITTED')) + '</span>' +
+                '</div>' +
+                '<p class="upgrade-desc">' + (eff ? '<strong style="color:var(--accent)">' + eff + '</strong> — ' : '') + u.blurb + '</p>' +
+                (maxed
+                  ? '<button class="upgrade-buy maxed" disabled>Fully fitted</button>'
+                  : '<button class="upgrade-buy" data-buy="' + u.id + '"' +
+                     (state.bank >= cost ? '' : ' disabled') + '>' +
+                     fmt(cost) + ' — ' + u.next(lvl) + '</button>') +
+              '</div>';
+    }
+    el['upgrade-list'].innerHTML = html;
+  }
+
+  function renderStats() {
+    var s = state.stats;
+    var rows = [
+      ['Voyages sent', s.voyages],
+      ['Brought home', s.recalled],
+      ['Lost at sea', s.sunk],
+      ['Loss rate', s.voyages ? pct(s.sunk / s.voyages) : '—'],
+      ['Best single return', fmt(s.bestReturn)],
+      ['Best multiplier', '×' + s.bestMult.toFixed(2)],
+      ['Longest trip', s.longestTrip.toFixed(1) + 's'],
+      ['Total earned', fmt(s.earned)],
+      ['Total lost', fmt(s.lost)],
+      ['Net', fmt(round2(s.earned - s.lost))],
+      ['Premiums paid', fmt(s.insurancePaid)],
+      ['Insurance recovered', fmt(s.insuranceRecovered)],
+      ['Peak bank', fmt(s.peakBank)],
+      ['Harbor grants taken', s.grants]
+    ];
+    var html = '';
+    for (var i = 0; i < rows.length; i++) {
+      html += '<dt>' + rows[i][0] + '</dt><dd>' + rows[i][1] + '</dd>';
+    }
+    el.stats.innerHTML = html;
+  }
+
+  function renderAll() {
+    el.bank.textContent = fmt(state.bank);
+    renderVoyages();
+    renderInsurance();
+    renderStakeControls();
+    renderCost();
+    renderUpgrades();
+    renderStats();
+  }
+
+  /* ---------------- Launching ---------------- */
+
+  function launch() {
+    if (run) return;
+    var stake = currentStake();
+    if (stake < MIN_STAKE || stake > maxStake()) return;
+
+    var insured = premiumRate() > 0;
+    var prem = round2(stake * premiumRate());
+
+    addBank(-(stake + prem));
+    state.stats.voyages++;
+    if (prem > 0) state.stats.insurancePaid = round2(state.stats.insurancePaid + prem);
+
+    var v = voyage(state.selected);
+
+    run = {
+      type: v.id,
+      stake: stake,
+      premium: prem,
+      insured: insured,
+      cover: insured ? coverage() : 0,
+      phase: 'outbound',
+      phaseT: 0,
+      t: 0,
+      mult: 1,
+      survival: 1,
+      mods: [],
+      nextEvent: 6 + Math.random() * 7,
+      target: state.upgrades.beacon > 0 ? state.autoRecall : null,
+      progress: 0,
+      sinkT: 0,
+      lastRiskLabel: ''
+    };
+
+    logMsg(v.name + ' — staked ' + fmt(stake) +
+      (insured ? ' (insured, ' + fmt(prem) + ' premium)' : ''), 'info');
+    setHint('She is clearing the harbor. The haul starts growing once she reaches the grounds.');
+    save();
+    dirty = true;
+  }
+
+  function recall(reason) {
+    if (!run || (run.phase !== 'working' && run.phase !== 'outbound')) return;
+
+    if (run.phase === 'outbound') {
+      // Aborted before reaching the grounds — the charter is refunded in full.
+      addBank(run.stake + run.premium);
+      if (run.premium > 0) state.stats.insurancePaid = round2(state.stats.insurancePaid - run.premium);
+      state.stats.voyages--;
+      logMsg('Called back before the harbor mouth — stake refunded.', '');
+      run = null;
+      setHint('Nothing ventured. Stake a fresh voyage when you are ready.');
+      save();
+      dirty = true;
+      return;
+    }
+
+    run.phase = 'returning';
+    run.phaseT = 0;
+    run.reason = reason || 'recall';
+    floatMsg('Turning for home', 'info');
+    setHint(reason === 'beacon'
+      ? 'The beacon tripped at ×' + run.mult.toFixed(2) + '. She is sailing home.'
+      : 'She is sailing home with ' + fmt(run.stake * run.mult) + ' aboard. The trip back is safe.');
+  }
+
+  function settleReturn() {
+    var value = round2(run.stake * run.mult);
+    var profit = round2(value - run.stake - run.premium);
+
+    addBank(value);
+    state.stats.recalled++;
+    state.stats.earned = round2(state.stats.earned + Math.max(0, profit));
+    if (profit < 0) state.stats.lost = round2(state.stats.lost - profit);
+    if (value > state.stats.bestReturn) state.stats.bestReturn = value;
+    if (run.mult > state.stats.bestMult) state.stats.bestMult = run.mult;
+    if (run.t > state.stats.longestTrip) state.stats.longestTrip = run.t;
+
+    logMsg('Home at ×' + run.mult.toFixed(2) + ' after ' + run.t.toFixed(1) + 's — banked ' +
+      fmt(value) + ' (' + (profit >= 0 ? '+' : '') + fmt(profit) + ')', profit >= 0 ? 'good' : 'bad');
+    floatMsg('+' + fmt(value), 'good');
+    setHint('Tied up at the dock. ' + (profit >= 0
+      ? 'A good trip — ' + fmt(profit) + ' clear.'
+      : 'You called it early and took a loss of ' + fmt(-profit) + '.'));
+
+    run = null;
+    save();
+    dirty = true;
+  }
+
+  function sink() {
+    run.phase = 'sunk';
+    run.phaseT = 0;
+    var lostValue = round2(run.stake * run.mult);
+    var refund = round2(run.stake * run.cover);
+
+    state.stats.sunk++;
+    state.stats.lost = round2(state.stats.lost + (run.stake + run.premium - refund));
+    if (run.t > state.stats.longestTrip) state.stats.longestTrip = run.t;
+
+    run.refund = refund;
+    run.lostValue = lostValue;
+
+    logMsg('Lost at sea after ' + run.t.toFixed(1) + 's — ' + fmt(lostValue) + ' gone' +
+      (refund > 0 ? '. Insurance returns ' + fmt(refund) + '.' : '.'), 'bad');
+    floatMsg('−' + fmt(lostValue), 'bad');
+    setHint('She went down at ×' + run.mult.toFixed(2) + '. ' +
+      (refund > 0 ? 'The underwriter covers ' + fmt(refund) + '.' : 'Nothing was insured.'));
+    dirty = true;
+  }
+
+  function settleSink() {
+    if (run.refund > 0) {
+      addBank(run.refund);
+      state.stats.insuranceRecovered = round2(state.stats.insuranceRecovered + run.refund);
+      floatMsg('+' + fmt(run.refund) + ' insured', 'gold');
+    }
+    run = null;
+    save();
+    dirty = true;
+  }
+
+  /* ---------------- Simulation ---------------- */
+
+  function update(dt) {
+    if (!run) return;
+    run.phaseT += dt;
+
+    if (run.phase === 'outbound') {
+      run.progress = ease(Math.min(1, run.phaseT / (OUTBOUND_MS / 1000)));
+      if (run.phaseT >= OUTBOUND_MS / 1000) {
+        run.phase = 'working';
+        run.phaseT = 0;
+        run.progress = 1;
+        setHint('On the grounds. Every second compounds the haul — and the danger.');
+      }
+      return;
+    }
+
+    if (run.phase === 'working') {
+      run.t += dt;
+
+      // expire finished modifiers
+      for (var i = run.mods.length - 1; i >= 0; i--) {
+        if (run.mods[i].until <= run.t) run.mods.splice(i, 1);
+      }
+
+      // haul growth
+      var v = voyage(run.type);
+      var g = growthRate(v) * modFactor(run, 'growth');
+      run.mult *= Math.exp(g * dt);
+
+      // random events
+      run.nextEvent -= dt * (voyage(run.type).eventRate);
+      if (run.nextEvent <= 0) {
+        fireEvent(run);
+        run.nextEvent = 7 + Math.random() * 9;
+      }
+
+      // hazard
+      var h = hazardAt(run, run.t);
+      run.survival *= Math.exp(-h * dt);
+      if (Math.random() < 1 - Math.exp(-h * dt)) { sink(); return; }
+
+      // beacon auto-recall
+      if (run.target && run.mult >= run.target) { recall('beacon'); return; }
+      return;
+    }
+
+    if (run.phase === 'returning') {
+      run.progress = 1 - ease(Math.min(1, run.phaseT / (RETURN_MS / 1000)));
+      if (run.phaseT >= RETURN_MS / 1000) settleReturn();
+      return;
+    }
+
+    if (run.phase === 'sunk') {
+      run.sinkT = Math.min(1, run.phaseT / (SINK_MS / 1000));
+      if (run.phaseT >= SINK_MS / 1000) settleSink();
+    }
+  }
+
+  function fireEvent(r) {
+    var v = voyage(r.type);
+    var pool = [];
+    var total = 0;
+    for (var i = 0; i < EVENTS.length; i++) {
+      var e = EVENTS[i];
+      if (e.only && e.only !== v.id) continue;
+      var w = e.weight * (e.treasure ? 0.4 + v.treasure * 2.2 : 1);
+      total += w;
+      pool.push({ e: e, w: total });
+    }
+    var pick = Math.random() * total;
+    var chosen = pool[pool.length - 1].e;
+    for (var j = 0; j < pool.length; j++) {
+      if (pick <= pool[j].w) { chosen = pool[j].e; break; }
+    }
+    var detail = chosen.apply(r);
+    floatMsg(detail, chosen.tone);
+    logMsg(chosen.text + ' — ' + detail, chosen.tone === 'gold' ? 'gold' : chosen.tone);
+  }
+
+  function ease(p) { return 1 - Math.pow(1 - p, 3); }
+
+  /* ---------------- Live readouts ---------------- */
+
+  var RISK_STEPS = [
+    { max: 0.08, label: 'Calm',      color: 'var(--good)' },
+    { max: 0.20, label: 'Steady',    color: 'var(--good)' },
+    { max: 0.38, label: 'Rising',    color: 'var(--gold)' },
+    { max: 0.60, label: 'Dangerous', color: 'var(--danger)' },
+    { max: 2.00, label: 'Extreme',   color: 'var(--danger)' }
+  ];
+
+  function renderLive() {
+    var working = run && (run.phase === 'working' || run.phase === 'returning');
+    var t = run ? run.t : 0;
+    var mult = run ? run.mult : 1;
+    var stake = run ? run.stake : currentStake();
+
+    el['r-time'].textContent = t.toFixed(1) + 's';
+    el['r-mult'].textContent = '×' + mult.toFixed(2);
+    el['r-haul'].textContent = fmt(stake * (mult - 1));
+    el['r-value'].textContent = fmt(stake * mult);
+
+    var risk20 = 0;
+    if (run && run.phase === 'working') {
+      var h = hazardAt(run, run.t);
+      risk20 = 1 - Math.exp(-h * 20);
+      if (hasInstruments()) {
+        el['risk-note'].textContent =
+          'Sinking odds: ' + (100 * (1 - Math.exp(-h * 10))).toFixed(1) + '% per 10s · ' +
+          'she has already beaten ' + (100 * (1 - run.survival)).toFixed(0) + '% odds to still be afloat.';
+      } else {
+        el['risk-note'].textContent = 'No instruments aboard — fit a Storm Glass to read exact odds.';
+      }
+    } else {
+      el['risk-note'].textContent = run
+        ? (run.phase === 'sunk' ? 'She is going down.'
+           : run.phase === 'returning' ? 'Homeward and out of danger.'
+           : 'Clearing the harbor — no risk until she reaches the grounds.')
+        : (hasInstruments()
+            ? 'Instruments ready. Danger climbs the longer she works.'
+            : 'No instruments aboard — fit a Storm Glass to read exact odds.');
+    }
+
+    var step = RISK_STEPS[RISK_STEPS.length - 1];
+    for (var i = 0; i < RISK_STEPS.length; i++) {
+      if (risk20 <= RISK_STEPS[i].max) { step = RISK_STEPS[i]; break; }
+    }
+    el['risk-fill'].style.width = Math.min(100, risk20 * 100).toFixed(1) + '%';
+    el['risk-label'].textContent = run && run.phase === 'working' ? step.label : 'At rest';
+    el['risk-label'].style.color = run && run.phase === 'working' ? step.color : 'var(--muted)';
+
+    var phase = run ? run.phase : 'idle';
+    var pill = el['status-pill'];
+    pill.dataset.phase = phase;
+    pill.textContent = ({
+      idle: 'At dock',
+      outbound: 'Outbound',
+      working: 'On the grounds',
+      returning: 'Sailing home',
+      sunk: 'Lost at sea'
+    })[phase];
+
+    el['recall-btn'].disabled = !run || (run.phase !== 'working' && run.phase !== 'outbound');
+    el['recall-btn'].textContent = run && run.phase === 'working'
+      ? 'Call her back — bank ' + fmt(stake * mult)
+      : (run && run.phase === 'outbound' ? 'Abort (full refund)' : 'Call the boat back');
+    el['launch-btn'].textContent = run ? 'At sea…' : 'Set sail';
+
+    if (working && run.phase === 'working') {
+      var label = step.label;
+      if (label !== run.lastRiskLabel && (label === 'Dangerous' || label === 'Extreme')) {
+        run.lastRiskLabel = label;
+        logMsg('Danger is ' + label.toLowerCase() + ' at ' + run.t.toFixed(0) + 's (×' + run.mult.toFixed(2) + ')',
+          label === 'Extreme' ? 'bad' : 'gold');
+      }
+    }
+  }
+
+  function setHint(text) { el['stage-hint'].textContent = text; }
+
+  /* ---------------- Canvas scene ---------------- */
+
+  var cv, ctx, scene = { w: 0, h: 0, boatX: 0, boatY: 0 };
+  var stars = [];
+  var bubbles = [];
+  var splashes = [];
+
+  function initCanvas() {
+    cv = el.sea;
+    ctx = cv.getContext('2d');
+    for (var i = 0; i < 70; i++) {
+      stars.push({
+        x: Math.random(), y: Math.random() * 0.42,
+        r: Math.random() * 1.1 + 0.3, p: Math.random() * 6.28
+      });
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+  }
+
+  function resizeCanvas() {
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var rect = cv.getBoundingClientRect();
+    scene.w = rect.width;
+    scene.h = rect.height;
+    cv.width = Math.round(rect.width * dpr);
+    cv.height = Math.round(rect.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function surfaceY(x, t, layer) {
+    var base = scene.h * 0.52 + layer * scene.h * 0.10;
+    return base +
+      Math.sin(x * 0.017 + t * 1.5 + layer) * (3.2 + layer) +
+      Math.sin(x * 0.037 - t * 2.1 + layer * 2) * (1.8 + layer * 0.6);
+  }
+
+  function draw(time) {
+    var W = scene.w, H = scene.h;
+    if (!W || !H) return;
+
+    // ---- sky ----
+    var sky = ctx.createLinearGradient(0, 0, 0, H * 0.55);
+    sky.addColorStop(0, '#050912');
+    sky.addColorStop(0.55, '#0a1a2b');
+    sky.addColorStop(1, '#12384c');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, W, H);
+
+    // ---- stars ----
+    for (var i = 0; i < stars.length; i++) {
+      var s = stars[i];
+      var tw = 0.45 + 0.55 * Math.abs(Math.sin(time * 0.7 + s.p));
+      ctx.globalAlpha = tw * 0.85;
+      ctx.fillStyle = '#dce9ff';
+      ctx.beginPath();
+      ctx.arc(s.x * W, s.y * H, s.r, 0, 6.283);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // ---- moon ----
+    var mx = W * 0.82, my = H * 0.15;
+    var glow = ctx.createRadialGradient(mx, my, 2, mx, my, 60);
+    glow.addColorStop(0, 'rgba(226,240,255,.35)');
+    glow.addColorStop(1, 'rgba(226,240,255,0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(mx - 60, my - 60, 120, 120);
+    ctx.fillStyle = '#e8f1ff';
+    ctx.beginPath();
+    ctx.arc(mx, my, 13, 0, 6.283);
+    ctx.fill();
+    ctx.fillStyle = '#0a1a2b';
+    ctx.beginPath();
+    ctx.arc(mx - 5, my - 4, 12, 0, 6.283);
+    ctx.fill();
+
+    // ---- water layers ----
+    var colors = ['#0b3a52', '#0a2f45', '#071f2f'];
+    for (var L = 0; L < 3; L++) {
+      ctx.fillStyle = colors[L];
+      ctx.beginPath();
+      ctx.moveTo(0, H);
+      for (var x = 0; x <= W; x += 6) ctx.lineTo(x, surfaceY(x, time, L));
+      ctx.lineTo(W, H);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // moon glitter on the water
+    ctx.globalAlpha = 0.14;
+    ctx.fillStyle = '#cfe8ff';
+    for (var gx = mx - 26; gx < mx + 26; gx += 7) {
+      var gy = surfaceY(gx, time, 0);
+      ctx.fillRect(gx, gy, 4 + Math.sin(time * 3 + gx) * 3, 1.4);
+    }
+    ctx.globalAlpha = 1;
+
+    drawDock(time);
+
+    // ---- boat position ----
+    var dockX = W * 0.13;
+    var groundsX = W * 0.60;
+    var p = run ? run.progress : 0;
+    var drift = (run && run.phase === 'working') ? Math.sin(time * 0.35) * W * 0.05 : 0;
+    var bx = dockX + (groundsX - dockX) * p + drift * p;
+    var by = surfaceY(bx, time, 0);
+
+    scene.boatX = bx;
+    scene.boatY = by;
+
+    // wake
+    if (run && (run.phase === 'outbound' || run.phase === 'returning')) {
+      ctx.globalAlpha = 0.3;
+      ctx.strokeStyle = '#bfe6ff';
+      ctx.lineWidth = 1.2;
+      for (var k = 1; k <= 3; k++) {
+        ctx.beginPath();
+        ctx.arc(bx, by + 3, 8 * k + (time * 12 % 8), 0.15, Math.PI - 0.15);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // slope for tilt
+    var slope = surfaceY(bx + 8, time, 0) - surfaceY(bx - 8, time, 0);
+    var tilt = Math.atan2(slope, 16);
+
+    if (run && run.phase === 'sunk') {
+      drawSinking(bx, by, tilt, run.sinkT, time);
+    } else {
+      drawBoat(bx, by, tilt, run && run.phase === 'working');
+    }
+
+    drawParticles(time);
+  }
+
+  function drawDock(time) {
+    var W = scene.w, H = scene.h;
+    var deckY = surfaceY(W * 0.06, time, 0) - 16;
+    ctx.fillStyle = '#241a12';
+    ctx.fillRect(0, deckY, W * 0.155, 7);
+    ctx.fillStyle = '#1a120c';
+    for (var i = 0; i < 4; i++) {
+      var px = 8 + i * (W * 0.155 - 16) / 3;
+      ctx.fillRect(px, deckY + 6, 4, 26);
+    }
+    // the harbor light itself
+    var lx = W * 0.145, ly = deckY - 22;
+    var g = ctx.createRadialGradient(lx, ly, 1, lx, ly, 40);
+    g.addColorStop(0, 'rgba(242,193,78,.45)');
+    g.addColorStop(1, 'rgba(242,193,78,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(lx - 40, ly - 40, 80, 80);
+    ctx.fillStyle = '#2b2118';
+    ctx.fillRect(lx - 2, ly, 4, 22);
+    ctx.fillStyle = '#f2c14e';
+    ctx.beginPath();
+    ctx.arc(lx, ly - 2, 3.4 + Math.sin(time * 2) * 0.4, 0, 6.283);
+    ctx.fill();
+  }
+
+  function drawBoat(x, y, tilt, working) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(tilt);
+
+    // mast
+    ctx.strokeStyle = '#d8c9ae';
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(0, -2);
+    ctx.lineTo(0, -34);
+    ctx.stroke();
+
+    // mainsail
+    ctx.fillStyle = '#f0f4f8';
+    ctx.beginPath();
+    ctx.moveTo(1.5, -33);
+    ctx.quadraticCurveTo(16, -20, 12, -4);
+    ctx.lineTo(1.5, -4);
+    ctx.closePath();
+    ctx.fill();
+
+    // jib
+    ctx.fillStyle = '#d9e4ee';
+    ctx.beginPath();
+    ctx.moveTo(-1.5, -31);
+    ctx.quadraticCurveTo(-12, -16, -11, -4);
+    ctx.lineTo(-1.5, -4);
+    ctx.closePath();
+    ctx.fill();
+
+    // hull
+    ctx.fillStyle = '#8a5a34';
+    ctx.beginPath();
+    ctx.moveTo(-17, -3);
+    ctx.lineTo(17, -3);
+    ctx.quadraticCurveTo(12, 7, -11, 7);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#6d4527';
+    ctx.fillRect(-17, -3, 34, 2);
+
+    // deck lantern while working
+    if (working) {
+      ctx.fillStyle = '#f2c14e';
+      ctx.beginPath();
+      ctx.arc(-13, -6, 2, 0, 6.283);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawSinking(x, y, tilt, s, time) {
+    var sink = s * 34;
+    var roll = tilt + s * 1.25;
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, 1 - s * 0.9);
+    ctx.translate(x, y + sink);
+    ctx.rotate(roll);
+    ctx.translate(-x, -(y + sink));
+    drawBoat(x, y + sink, 0, false);
+    ctx.restore();
+
+    if (Math.random() < 0.5) {
+      bubbles.push({ x: x + (Math.random() - 0.5) * 26, y: y + 4, r: 1 + Math.random() * 2.5, life: 1 });
+    }
+  }
+
+  function drawParticles(time) {
+    for (var i = bubbles.length - 1; i >= 0; i--) {
+      var b = bubbles[i];
+      b.y -= 22 * 0.016;
+      b.life -= 0.012;
+      if (b.life <= 0) { bubbles.splice(i, 1); continue; }
+      ctx.globalAlpha = b.life * 0.6;
+      ctx.strokeStyle = '#cfe8ff';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.r, 0, 6.283);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+
+    // occasional fish jump while working
+    if (run && run.phase === 'working' && Math.random() < 0.012) {
+      splashes.push({ x: scene.boatX + (Math.random() - 0.5) * 120, y: scene.boatY, life: 1 });
+    }
+    for (var j = splashes.length - 1; j >= 0; j--) {
+      var sp = splashes[j];
+      sp.life -= 0.03;
+      if (sp.life <= 0) { splashes.splice(j, 1); continue; }
+      var h = Math.sin((1 - sp.life) * Math.PI) * 14;
+      ctx.globalAlpha = sp.life;
+      ctx.fillStyle = '#9fd3e8';
+      ctx.beginPath();
+      ctx.ellipse(sp.x, sp.y - h, 3.4, 1.6, -0.5 + (1 - sp.life) * 1.2, 0, 6.283);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  /* ---------------- Main loop ---------------- */
+
+  var last = 0;
+  var saveTimer = 0;
+  var renderTimer = 0;
+
+  function frame(now) {
+    var dt = last ? Math.min((now - last) / 1000, 0.1) : 0;
+    last = now;
+
+    update(dt);
+    draw(now / 1000);
+    renderLive();
+
+    renderTimer += dt;
+    if (dirty && renderTimer > 0.2) {
+      renderTimer = 0;
+      dirty = false;
+      el.bank.textContent = fmt(state.bank);
+      renderVoyages();
+      renderInsurance();
+      renderStakeControls();
+      renderCost();
+      renderUpgrades();
+      renderStats();
+    }
+
+    saveTimer += dt;
+    if (saveTimer > 8) { saveTimer = 0; save(); }
+
+    requestAnimationFrame(frame);
+  }
+
+  /* ---------------- Purchases ---------------- */
+
+  function buyUpgrade(id) {
+    var u = null;
+    for (var i = 0; i < UPGRADES.length; i++) if (UPGRADES[i].id === id) u = UPGRADES[i];
+    if (!u) return;
+    var lvl = state.upgrades[id];
+    if (lvl >= u.costs.length) return;
+    var cost = u.costs[lvl];
+    if (state.bank < cost) return;
+
+    addBank(-cost);
+    state.upgrades[id] = lvl + 1;
+    logMsg('Shipyard: ' + u.name + ' → ' + u.effect(lvl + 1) + ' (' + fmt(cost) + ')', 'info');
+    if (id === 'insurance' && lvl === 0) state.insureOn = true;
+    save();
+    dirty = true;
+  }
+
+  function charter(id) {
+    var v = voyage(id);
+    if (state.chartered[id] || state.bank < v.charter) return;
+    addBank(-v.charter);
+    state.chartered[id] = true;
+    state.selected = id;
+    logMsg('Chartered ' + v.name + ' for ' + fmt(v.charter) + '.', 'gold');
+    save();
+    dirty = true;
+  }
+
+  function takeGrant() {
+    if (run || maxStake() >= MIN_STAKE) return;
+    addBank(GRANT);
+    state.stats.grants++;
+    logMsg('The harbormaster fronts you ' + fmt(GRANT) + '. Try not to need it again.', 'gold');
+    save();
+    dirty = true;
+  }
+
+  /* ---------------- Wiring ---------------- */
+
+  function bind() {
+    el['launch-btn'].addEventListener('click', launch);
+    el['recall-btn'].addEventListener('click', function () { recall('manual'); });
+    el['grant-btn'].addEventListener('click', takeGrant);
+
+    el.stake.addEventListener('input', function () {
+      el['stake-slider'].value = String(currentStake());
+      renderCost();
+    });
+
+    el['stake-slider'].addEventListener('input', function () {
+      el.stake.value = el['stake-slider'].value;
+      renderCost();
+    });
+
+    document.querySelectorAll('[data-stake]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var mode = btn.dataset.stake;
+        var cap = maxStake();
+        var v;
+        if (mode === 'min') v = MIN_STAKE;
+        else if (mode === 'max') v = cap;
+        else v = Math.floor(state.bank * parseFloat(mode));
+        el.stake.value = String(Math.max(0, Math.min(cap, v)));
+        el['stake-slider'].value = el.stake.value;
+        renderCost();
+      });
+    });
+
+    el['voyage-list'].addEventListener('click', function (e) {
+      var charterBtn = e.target.closest('[data-charter]');
+      if (charterBtn) { charter(charterBtn.dataset.charter); return; }
+      var card = e.target.closest('[data-voyage]');
+      if (!card) return;
+      var id = card.dataset.voyage;
+      if (!state.chartered[id]) return;
+      state.selected = id;
+      save();
+      dirty = true;
+    });
+
+    el['upgrade-list'].addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-buy]');
+      if (btn) buyUpgrade(btn.dataset.buy);
+    });
+
+    el['insurance-toggle'].addEventListener('change', function () {
+      state.insureOn = el['insurance-toggle'].checked;
+      var cap = maxStake();
+      if (currentStake() > cap) { el.stake.value = String(cap); }
+      save();
+      dirty = true;
+    });
+
+    el['auto-recall'].addEventListener('change', function () {
+      var v = parseFloat(el['auto-recall'].value);
+      state.autoRecall = isFinite(v) && v > 1 ? v : null;
+      if (state.autoRecall === null) el['auto-recall'].value = '';
+      save();
+    });
+
+    document.querySelectorAll('.tab').forEach(function (tab) {
+      tab.addEventListener('click', function () {
+        document.querySelectorAll('.tab').forEach(function (t) { t.classList.remove('is-active'); });
+        document.querySelectorAll('.tab-body').forEach(function (b) { b.classList.remove('is-active'); });
+        tab.classList.add('is-active');
+        var panel = document.querySelector('[data-panel="' + tab.dataset.tab + '"]');
+        if (panel) panel.classList.add('is-active');
+      });
+    });
+
+    el['reset-btn'].addEventListener('click', function () {
+      if (!window.confirm('Scuttle everything and start over with ' + fmt(START_BANK) + '?')) return;
+      try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* ignore */ }
+      state = defaultState();
+      run = null;
+      logMsg('A fresh berth and ' + fmt(START_BANK) + ' to your name.', 'info');
+      renderAll();
+      renderLog();
+      save();
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.target.tagName === 'INPUT') return;
+      if (e.code === 'Space') {
+        e.preventDefault();
+        if (run) recall('manual'); else launch();
+      }
+    });
+  }
+
+  /* ---------------- Boot ---------------- */
+
+  function boot() {
+    cacheDom();
+    state = load();
+    initCanvas();
+    bind();
+    renderAll();
+    renderLog();
+    setHint(state.stats.voyages
+      ? 'Welcome back. ' + state.stats.voyages + ' voyages sent, ' + state.stats.sunk + ' never came home.'
+      : 'Stake your funds and send the boat out. Every second at sea grows the haul — and the odds of losing it all.');
+    requestAnimationFrame(frame);
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+})();
+
+</script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">&#9973;</span>
+    <span class="brand-text">Harborlight<em>a sailboat venture</em></span>
+  </div>
+  <div class="topbar-right">
+    <div class="bank">
+      <span class="bank-label">Bank</span>
+      <strong id="bank">$0</strong>
+    </div>
+    <div class="status-pill" id="status-pill" data-phase="idle">At dock</div>
+  </div>
+</header>
+
+<main class="grid">
+
+  <!-- ============ LAUNCH PANEL ============ -->
+  <section class="panel" id="panel-launch">
+    <h2 class="panel-title">Charter a voyage</h2>
+
+    <div class="field">
+      <div class="field-head">
+        <label for="stake">Stake</label>
+        <span class="field-note" id="stake-cap-note">max &mdash;</span>
+      </div>
+      <div class="stake-row">
+        <span class="currency">$</span>
+        <input type="number" id="stake" min="10" step="10" value="100" inputmode="numeric">
+      </div>
+      <input type="range" id="stake-slider" min="0" max="1000" value="100" step="1" aria-label="Stake amount">
+      <div class="chip-row">
+        <button class="chip" data-stake="min">Min</button>
+        <button class="chip" data-stake="0.25">25%</button>
+        <button class="chip" data-stake="0.5">50%</button>
+        <button class="chip" data-stake="max">Max</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <div class="field-head"><label>Purpose</label></div>
+      <div id="voyage-list" class="voyage-list"></div>
+    </div>
+
+    <div class="field" id="insurance-field" hidden>
+      <label class="toggle">
+        <input type="checkbox" id="insurance-toggle">
+        <span class="toggle-box"></span>
+        <span class="toggle-text">
+          <strong>Insure this voyage</strong>
+          <em id="insurance-terms">&mdash;</em>
+        </span>
+      </label>
+    </div>
+
+    <div class="field" id="beacon-field" hidden>
+      <div class="field-head">
+        <label for="auto-recall">Beacon auto-recall</label>
+        <span class="field-note">at multiplier</span>
+      </div>
+      <div class="stake-row">
+        <span class="currency">&times;</span>
+        <input type="number" id="auto-recall" min="1.05" step="0.05" placeholder="off" inputmode="decimal">
+      </div>
+    </div>
+
+    <div class="cost-summary" id="cost-summary"></div>
+
+    <button class="primary" id="launch-btn">Set sail</button>
+    <button class="ghost" id="grant-btn" hidden>Accept a harbor grant ($100)</button>
+  </section>
+
+  <!-- ============ STAGE ============ -->
+  <section class="panel stage" id="panel-stage">
+    <div class="sea-wrap">
+      <canvas id="sea"></canvas>
+      <div class="sea-overlay" id="sea-overlay"></div>
+    </div>
+
+    <div class="readouts">
+      <div class="readout">
+        <span class="readout-label">Time at sea</span>
+        <strong id="r-time">0.0s</strong>
+      </div>
+      <div class="readout">
+        <span class="readout-label">Multiplier</span>
+        <strong id="r-mult" class="gold">&times;1.00</strong>
+      </div>
+      <div class="readout">
+        <span class="readout-label">Haul aboard</span>
+        <strong id="r-haul" class="gold">$0</strong>
+      </div>
+      <div class="readout">
+        <span class="readout-label">Value if recalled</span>
+        <strong id="r-value">$0</strong>
+      </div>
+    </div>
+
+    <div class="risk">
+      <div class="risk-head">
+        <span>Danger</span>
+        <span id="risk-label">Calm</span>
+      </div>
+      <div class="risk-track"><div class="risk-fill" id="risk-fill"></div></div>
+      <div class="risk-note" id="risk-note">No instruments aboard &mdash; fit a Storm Glass to read exact odds.</div>
+    </div>
+
+    <button class="primary danger-btn" id="recall-btn" disabled>Call the boat back</button>
+    <p class="stage-hint" id="stage-hint">Stake your funds and send the boat out. Every second at sea grows the haul &mdash; and the odds of losing it all.</p>
+  </section>
+
+  <!-- ============ SIDE PANEL ============ -->
+  <section class="panel" id="panel-side">
+    <div class="tabs" role="tablist">
+      <button class="tab is-active" data-tab="shipyard" role="tab">Shipyard</button>
+      <button class="tab" data-tab="log" role="tab">Log</button>
+      <button class="tab" data-tab="stats" role="tab">Records</button>
+    </div>
+
+    <div class="tab-body is-active" data-panel="shipyard">
+      <div id="upgrade-list" class="upgrade-list"></div>
+    </div>
+
+    <div class="tab-body" data-panel="log">
+      <ul id="log" class="log"></ul>
+    </div>
+
+    <div class="tab-body" data-panel="stats">
+      <dl id="stats" class="stats"></dl>
+      <button class="ghost small" id="reset-btn">Scuttle the fleet (reset save)</button>
+    </div>
+  </section>
+</main>
+
+<details class="howto">
+  <summary>How Harborlight works</summary>
+  <div class="howto-body">
+    <p><strong>Stake and sail.</strong> Choose how much of your bank to put behind a voyage. The money leaves your account the moment the boat clears the dock.</p>
+    <p><strong>Time is the payout.</strong> The longer the boat works, the higher the multiplier on your stake. Growth compounds, so the last ten seconds are always worth more than the first ten.</p>
+    <p><strong>Time is also the risk.</strong> Every second carries a chance the boat goes down, and that chance <em>climbs</em> the longer you stay out. A sinking costs the stake and the entire haul.</p>
+    <p><strong>A full hold rides low.</strong> Danger scales with the haul as well as the clock, so the richer the boat gets, the more the sea wants it. That is why no set of upgrades ever makes a long trip safe &mdash; anything that grows the haul faster also puts it at risk sooner.</p>
+    <p><strong>Call it home.</strong> Recalling freezes the multiplier and banks the value. The sail home is safe &mdash; the decision is the whole game.</p>
+    <p><strong>Spend on the shipyard.</strong> Hulls and storm glasses cut risk, sonar speeds the haul, a larger hold raises how much you may stake, and an insurance policy refunds part of your stake when the worst happens &mdash; for a premium charged at launch.</p>
+    <p><strong>Charter new purposes.</strong> Fishing is only the start. Trawling, salvage diving, and night cargo runs each rewrite the risk-and-reward curve.</p>
+  </div>
+</details>
+
+<footer class="site-footer">
+  <a href="../personal/">&larr; Back to davidsoard.com</a>
+  <span class="copyright">&copy; 2026 David Soard. All rights reserved.</span>
+  <span>Progress saves to this browser.</span>
+</footer>
+
+</body>
+</html>
