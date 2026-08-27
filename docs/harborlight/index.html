@@ -114,6 +114,23 @@ input { font-family: inherit; }
 .bank strong.flash-up { color: var(--good); }
 .bank strong.flash-down { color: var(--danger); }
 
+.sound-btn {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  font-size: 15px;
+  line-height: 1;
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  cursor: pointer;
+  transition: all .15s ease;
+}
+
+.sound-btn:hover { border-color: var(--accent); background: var(--accent-soft); }
+.sound-btn.is-muted { opacity: .5; }
+
 .status-pill {
   font-size: 11px;
   font-weight: 700;
@@ -949,6 +966,7 @@ input[type=range]::-moz-range-thumb {
       insureOn: false,
       autoRecall: null,
       collapsed: { launch: false, side: false },
+      muted: false,
       stats: {
         voyages: 0, sunk: 0, recalled: 0,
         bestReturn: 0, bestMult: 1, longestTrip: 0,
@@ -974,6 +992,7 @@ input[type=range]::-moz-range-thumb {
           if (saved.selected) s.selected = saved.selected;
           s.insureOn = !!saved.insureOn;
           merge(s.collapsed, saved.collapsed);
+          s.muted = !!saved.muted;
           s.autoRecall = saved.autoRecall != null ? num(saved.autoRecall, null) : null;
           if (Array.isArray(saved.log)) s.log = saved.log.slice(-60);
         }
@@ -1079,7 +1098,7 @@ input[type=range]::-moz-range-thumb {
      'insurance-field', 'insurance-toggle', 'insurance-terms', 'beacon-field', 'auto-recall',
      'cost-summary', 'grant-btn', 'sea', 'sea-overlay', 'grid',
      'r-time', 'r-mult', 'r-haul', 'r-value', 'risk-fill', 'risk-label', 'risk-note',
-     'action-btn', 'stage-hint', 'upgrade-list', 'log', 'stats', 'reset-btn'
+     'action-btn', 'stage-hint', 'upgrade-list', 'log', 'stats', 'reset-btn', 'sound-btn'
     ].forEach(function (id) { el[id] = $(id); });
   }
 
@@ -1288,6 +1307,238 @@ input[type=range]::-moz-range-thumb {
     renderStats();
   }
 
+  /* ---------------- Sound ----------------
+     Every sound here is synthesised at runtime through the Web Audio
+     API — there are no audio files to load, which keeps the game a
+     single self-contained page. Browsers refuse to start audio without
+     a user gesture, so the context is created lazily on first input
+     and every call is a no-op until then.
+     --------------------------------------- */
+
+  var MASTER_VOL = 0.45;
+
+  var audio = { ctx: null, master: null, noise: null, ambient: null };
+
+  function ensureAudio() {
+    if (audio.ctx) {
+      if (audio.ctx.state === 'suspended') audio.ctx.resume();
+      return audio.ctx;
+    }
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    try {
+      var ctx = new AC();
+      var comp = ctx.createDynamicsCompressor();
+      var master = ctx.createGain();
+      master.gain.value = state.muted ? 0 : MASTER_VOL;
+      master.connect(comp);
+      comp.connect(ctx.destination);
+
+      // one reusable second of white noise for surf, splashes and crashes
+      var len = Math.floor(ctx.sampleRate * 2);
+      var buf = ctx.createBuffer(1, len, ctx.sampleRate);
+      var d = buf.getChannelData(0);
+      for (var i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+
+      audio.ctx = ctx;
+      audio.master = master;
+      audio.noise = buf;
+      return ctx;
+    } catch (e) { return null; }
+  }
+
+  function audible() { return audio.ctx && !state.muted; }
+
+  /* One oscillator with an envelope, optionally sliding in pitch. */
+  function tone(o) {
+    if (!audible()) return;
+    var ctx = audio.ctx;
+    var t = ctx.currentTime + (o.delay || 0);
+    var dur = o.dur || 0.3;
+    var peak = o.gain == null ? 0.18 : o.gain;
+
+    var osc = ctx.createOscillator();
+    osc.type = o.type || 'sine';
+    osc.frequency.setValueAtTime(o.freq, t);
+    if (o.to) osc.frequency.exponentialRampToValueAtTime(Math.max(20, o.to), t + dur);
+
+    var g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(peak, t + (o.attack || 0.01));
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+
+    var tail = osc;
+    if (o.cutoff) {
+      var f = ctx.createBiquadFilter();
+      f.type = o.filter || 'lowpass';
+      f.frequency.value = o.cutoff;
+      tail.connect(f);
+      tail = f;
+    }
+    tail.connect(g);
+    g.connect(audio.master);
+    osc.start(t);
+    osc.stop(t + dur + 0.05);
+  }
+
+  /* A shaped burst of noise — surf, splash, thunder, bubbles. */
+  function noiseBurst(o) {
+    if (!audible()) return;
+    var ctx = audio.ctx;
+    var t = ctx.currentTime + (o.delay || 0);
+    var dur = o.dur || 0.3;
+    var peak = o.gain == null ? 0.12 : o.gain;
+
+    var src = ctx.createBufferSource();
+    src.buffer = audio.noise;
+
+    var f = ctx.createBiquadFilter();
+    f.type = o.filter || 'bandpass';
+    f.frequency.setValueAtTime(o.cutoff || 800, t);
+    if (o.to) f.frequency.exponentialRampToValueAtTime(Math.max(40, o.to), t + dur);
+    if (o.q) f.Q.value = o.q;
+
+    var g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(peak, t + (o.attack || 0.02));
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+
+    src.connect(f); f.connect(g); g.connect(audio.master);
+    src.start(t);
+    src.stop(t + dur + 0.05);
+  }
+
+  function notes(list, opts) {
+    for (var i = 0; i < list.length; i++) {
+      var o = {};
+      for (var k in opts) o[k] = opts[k];
+      o.freq = list[i];
+      o.delay = (opts.delay || 0) + i * (opts.step || 0.07);
+      tone(o);
+    }
+  }
+
+  /* ---- the sounds themselves ---- */
+
+  function sfxClick() { noiseBurst({ dur: 0.03, gain: 0.05, filter: 'highpass', cutoff: 2600 }); }
+
+  function sfxSail() {
+    // rope and canvas, then two notes of a departure horn
+    noiseBurst({ dur: 0.7, gain: 0.10, filter: 'lowpass', cutoff: 300, to: 2400, attack: 0.15 });
+    tone({ freq: 196, to: 294, type: 'triangle', dur: 0.55, gain: 0.16, delay: 0.05 });
+    tone({ freq: 98, to: 147, type: 'sine', dur: 0.6, gain: 0.12, delay: 0.05 });
+  }
+
+  function sfxBell() {
+    // ship's bell: a fundamental with inharmonic partials, struck hard and left to ring
+    var f = 720;
+    var partials = [1, 2.02, 2.41, 3.02, 4.16];
+    var gains = [0.16, 0.09, 0.06, 0.04, 0.025];
+    for (var i = 0; i < partials.length; i++) {
+      tone({ freq: f * partials[i], type: 'sine', dur: 1.1 + i * 0.15, gain: gains[i], attack: 0.004 });
+    }
+  }
+
+  function sfxCash() {
+    notes([523, 659, 784, 1046], { type: 'triangle', dur: 0.3, gain: 0.14, step: 0.065 });
+    noiseBurst({ dur: 0.5, gain: 0.05, filter: 'highpass', cutoff: 4000, delay: 0.1 });
+  }
+
+  function sfxCoin() {
+    notes([880, 1318], { type: 'triangle', dur: 0.18, gain: 0.10, step: 0.05 });
+  }
+
+  function sfxSink() {
+    // the hull going under, a crash of water, then bubbles rising
+    tone({ freq: 240, to: 42, type: 'sawtooth', dur: 1.6, gain: 0.20, cutoff: 500 });
+    noiseBurst({ dur: 1.1, gain: 0.18, filter: 'lowpass', cutoff: 900, to: 160 });
+    tone({ freq: 130, to: 55, type: 'square', dur: 0.9, gain: 0.07, cutoff: 300, delay: 0.1 });
+    for (var i = 0; i < 9; i++) {
+      tone({ freq: 500 + Math.random() * 700, type: 'sine', dur: 0.1,
+             gain: 0.05, delay: 0.5 + Math.random() * 1.4 });
+    }
+  }
+
+  function sfxGood()  { notes([784, 1175], { type: 'triangle', dur: 0.22, gain: 0.11, step: 0.06 }); }
+  function sfxBad()   { tone({ freq: 300, to: 150, type: 'sawtooth', dur: 0.45, gain: 0.13, cutoff: 700 });
+                        noiseBurst({ dur: 0.6, gain: 0.08, filter: 'lowpass', cutoff: 500, to: 120 }); }
+  function sfxCalm()  { noiseBurst({ dur: 0.9, gain: 0.07, filter: 'lowpass', cutoff: 700, to: 260, attack: 0.3 }); }
+  function sfxRush()  { noiseBurst({ dur: 0.5, gain: 0.08, filter: 'bandpass', cutoff: 500, to: 1800, q: 1.2 }); }
+  function sfxWarn()  { tone({ freq: 190, type: 'square', dur: 0.16, gain: 0.10, cutoff: 600 });
+                        tone({ freq: 190, type: 'square', dur: 0.16, gain: 0.10, cutoff: 600, delay: 0.22 }); }
+  function sfxAbort() { tone({ freq: 420, to: 240, type: 'triangle', dur: 0.25, gain: 0.11 }); }
+
+  function sfxUpgrade() { notes([392, 523, 659, 784], { type: 'triangle', dur: 0.28, gain: 0.12, step: 0.055 }); }
+  function sfxCharter() { notes([392, 494, 587, 784, 988], { type: 'triangle', dur: 0.4, gain: 0.13, step: 0.09 }); }
+
+  /* A sonar ping that quickens and rises as the danger climbs. */
+  function sfxPing(risk) {
+    var r = Math.max(0, Math.min(1, risk / 0.6));
+    tone({ freq: 620 + 420 * r, type: 'sine', dur: 0.16, gain: 0.055 + 0.03 * r, attack: 0.006 });
+  }
+
+  function pingInterval(risk) {
+    var r = Math.max(0, Math.min(1, risk / 0.6));
+    return 2.4 - 1.9 * r;
+  }
+
+  /* ---- looping surf while she is out ---- */
+
+  function ambientStart() {
+    var ctx = ensureAudio();
+    if (!ctx || audio.ambient) return;
+    var src = ctx.createBufferSource();
+    src.buffer = audio.noise;
+    src.loop = true;
+
+    var lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 420;
+
+    var g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.055, ctx.currentTime + 1.4);
+
+    // a slow swell so the surf breathes rather than hisses
+    var lfo = ctx.createOscillator();
+    lfo.type = 'sine';
+    lfo.frequency.value = 0.13;
+    var lfoGain = ctx.createGain();
+    lfoGain.gain.value = 0.03;
+    lfo.connect(lfoGain);
+    lfoGain.connect(g.gain);
+
+    src.connect(lp); lp.connect(g); g.connect(audio.master);
+    src.start(); lfo.start();
+    audio.ambient = { src: src, gain: g, lfo: lfo };
+  }
+
+  function ambientStop() {
+    if (!audio.ambient || !audio.ctx) { audio.ambient = null; return; }
+    var a = audio.ambient, ctx = audio.ctx, t = ctx.currentTime;
+    try {
+      a.gain.gain.cancelScheduledValues(t);
+      a.gain.gain.setValueAtTime(Math.max(0.0001, a.gain.gain.value), t);
+      a.gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.9);
+      a.src.stop(t + 1.0);
+      a.lfo.stop(t + 1.0);
+    } catch (e) { /* already stopped */ }
+    audio.ambient = null;
+  }
+
+  function setMuted(on) {
+    state.muted = !!on;
+    if (audio.master && audio.ctx) {
+      audio.master.gain.setTargetAtTime(state.muted ? 0 : MASTER_VOL, audio.ctx.currentTime, 0.02);
+    }
+    var btn = el['sound-btn'];
+    btn.textContent = state.muted ? '🔇' : '🔊';
+    btn.setAttribute('aria-pressed', state.muted ? 'false' : 'true');
+    btn.setAttribute('aria-label', state.muted ? 'Unmute sound' : 'Mute sound');
+    btn.classList.toggle('is-muted', state.muted);
+    save();
+  }
+
   /* ---------------- Launching ---------------- */
 
   function launch() {
@@ -1317,12 +1568,15 @@ input[type=range]::-moz-range-thumb {
       survival: 1,
       mods: [],
       nextEvent: 6 + Math.random() * 7,
+      pingT: 1.2,
       target: state.upgrades.beacon > 0 ? state.autoRecall : null,
       progress: 0,
       sinkT: 0,
       lastRiskLabel: ''
     };
 
+    sfxSail();
+    ambientStart();
     logMsg(v.name + ' — staked ' + fmt(stake) +
       (insured ? ' (insured, ' + fmt(prem) + ' premium)' : ''), 'info');
     setHint('She is clearing the harbor. The haul starts growing once she reaches the grounds.');
@@ -1338,6 +1592,8 @@ input[type=range]::-moz-range-thumb {
       addBank(run.stake + run.premium);
       if (run.premium > 0) state.stats.insurancePaid = round2(state.stats.insurancePaid - run.premium);
       state.stats.voyages--;
+      sfxAbort();
+      ambientStop();
       logMsg('Called back before the harbor mouth — stake refunded.', '');
       run = null;
       setHint('Nothing ventured. Stake a fresh voyage when you are ready.');
@@ -1349,6 +1605,7 @@ input[type=range]::-moz-range-thumb {
     run.phase = 'returning';
     run.phaseT = 0;
     run.reason = reason || 'recall';
+    sfxBell();
     floatMsg('Turning for home', 'info');
     setHint(reason === 'beacon'
       ? 'The beacon tripped at ×' + run.mult.toFixed(2) + '. She is sailing home.'
@@ -1367,6 +1624,8 @@ input[type=range]::-moz-range-thumb {
     if (run.mult > state.stats.bestMult) state.stats.bestMult = run.mult;
     if (run.t > state.stats.longestTrip) state.stats.longestTrip = run.t;
 
+    sfxCash();
+    ambientStop();
     logMsg('Home at ×' + run.mult.toFixed(2) + ' after ' + run.t.toFixed(1) + 's — banked ' +
       fmt(value) + ' (' + (profit >= 0 ? '+' : '') + fmt(profit) + ')', profit >= 0 ? 'good' : 'bad');
     floatMsg('+' + fmt(value), 'good');
@@ -1392,6 +1651,9 @@ input[type=range]::-moz-range-thumb {
     run.refund = refund;
     run.lostValue = lostValue;
 
+    sfxSink();
+    ambientStop();
+
     logMsg('Lost at sea after ' + run.t.toFixed(1) + 's — ' + fmt(lostValue) + ' gone' +
       (refund > 0 ? '. Insurance returns ' + fmt(refund) + '.' : '.'), 'bad');
     floatMsg('−' + fmt(lostValue), 'bad');
@@ -1403,6 +1665,7 @@ input[type=range]::-moz-range-thumb {
   function settleSink() {
     if (run.refund > 0) {
       addBank(run.refund);
+      sfxCoin();
       state.stats.insuranceRecovered = round2(state.stats.insuranceRecovered + run.refund);
       floatMsg('+' + fmt(run.refund) + ' insured', 'gold');
     }
@@ -1451,6 +1714,11 @@ input[type=range]::-moz-range-thumb {
       // hazard
       var h = hazardAt(run, run.t);
       run.survival *= Math.exp(-h * dt);
+
+      // a ping that quickens as the odds turn
+      var risk20 = 1 - Math.exp(-h * 20);
+      run.pingT -= dt;
+      if (run.pingT <= 0) { sfxPing(risk20); run.pingT = pingInterval(risk20); }
       if (Math.random() < 1 - Math.exp(-h * dt)) { sink(); return; }
 
       // beacon auto-recall
@@ -1487,6 +1755,10 @@ input[type=range]::-moz-range-thumb {
       if (pick <= pool[j].w) { chosen = pool[j].e; break; }
     }
     var detail = chosen.apply(r);
+    if (chosen.tone === 'gold') sfxGood();
+    else if (chosen.tone === 'bad') sfxBad();
+    else if (chosen.tone === 'good') sfxCalm();
+    else sfxRush();
     floatMsg(detail, chosen.tone);
     logMsg(chosen.text + ' — ' + detail, chosen.tone === 'gold' ? 'gold' : chosen.tone);
   }
@@ -1586,6 +1858,7 @@ input[type=range]::-moz-range-thumb {
       var label = step.label;
       if (label !== run.lastRiskLabel && (label === 'Dangerous' || label === 'Extreme')) {
         run.lastRiskLabel = label;
+        sfxWarn();
         logMsg('Danger is ' + label.toLowerCase() + ' at ' + run.t.toFixed(0) + 's (×' + run.mult.toFixed(2) + ')',
           label === 'Extreme' ? 'bad' : 'gold');
       }
@@ -1932,6 +2205,7 @@ input[type=range]::-moz-range-thumb {
 
     addBank(-cost);
     state.upgrades[id] = lvl + 1;
+    sfxUpgrade();
     logMsg('Shipyard: ' + u.name + ' → ' + u.effect(lvl + 1) + ' (' + fmt(cost) + ')', 'info');
     if (id === 'insurance' && lvl === 0) state.insureOn = true;
     save();
@@ -1944,6 +2218,7 @@ input[type=range]::-moz-range-thumb {
     addBank(-v.charter);
     state.chartered[id] = true;
     state.selected = id;
+    sfxCharter();
     logMsg('Chartered ' + v.name + ' for ' + fmt(v.charter) + '.', 'gold');
     save();
     dirty = true;
@@ -1953,6 +2228,7 @@ input[type=range]::-moz-range-thumb {
     if (run || maxStake() >= MIN_STAKE) return;
     addBank(GRANT);
     state.stats.grants++;
+    sfxCoin();
     logMsg('The harbormaster fronts you ' + fmt(GRANT) + '. Try not to need it again.', 'gold');
     save();
     dirty = true;
@@ -1961,13 +2237,23 @@ input[type=range]::-moz-range-thumb {
   /* ---------------- Wiring ---------------- */
 
   function bind() {
+    // Browsers only allow audio to start from a gesture; every pointer press
+    // creates or resumes the context, and is a cheap no-op after the first.
+    document.addEventListener('pointerdown', ensureAudio);
+
     el['action-btn'].addEventListener('click', function () {
       if (run) recall('manual'); else launch();
+    });
+
+    el['sound-btn'].addEventListener('click', function () {
+      ensureAudio();
+      setMuted(!state.muted);
+      if (!state.muted) sfxClick();
     });
     el['grant-btn'].addEventListener('click', takeGrant);
 
     document.querySelectorAll('[data-collapse]').forEach(function (btn) {
-      btn.addEventListener('click', function () { toggleCollapse(btn.dataset.collapse); });
+      btn.addEventListener('click', function () { sfxClick(); toggleCollapse(btn.dataset.collapse); });
     });
 
     el.stake.addEventListener('input', function () {
@@ -1990,6 +2276,7 @@ input[type=range]::-moz-range-thumb {
         else v = Math.floor(state.bank * parseFloat(mode));
         el.stake.value = String(Math.max(0, Math.min(cap, v)));
         el['stake-slider'].value = el.stake.value;
+        sfxClick();
         renderCost();
       });
     });
@@ -2001,6 +2288,7 @@ input[type=range]::-moz-range-thumb {
       if (!card) return;
       var id = card.dataset.voyage;
       if (!state.chartered[id]) return;
+      sfxClick();
       state.selected = id;
       save();
       dirty = true;
@@ -2030,6 +2318,7 @@ input[type=range]::-moz-range-thumb {
       tab.addEventListener('click', function () {
         document.querySelectorAll('.tab').forEach(function (t) { t.classList.remove('is-active'); });
         document.querySelectorAll('.tab-body').forEach(function (b) { b.classList.remove('is-active'); });
+        sfxClick();
         tab.classList.add('is-active');
         var panel = document.querySelector('[data-panel="' + tab.dataset.tab + '"]');
         if (panel) panel.classList.add('is-active');
@@ -2039,6 +2328,7 @@ input[type=range]::-moz-range-thumb {
     el['reset-btn'].addEventListener('click', function () {
       if (!window.confirm('Scuttle everything and start over with ' + fmt(START_BANK) + '?')) return;
       try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* ignore */ }
+      ambientStop();
       state = defaultState();
       run = null;
       logMsg('A fresh berth and ' + fmt(START_BANK) + ' to your name.', 'info');
@@ -2064,6 +2354,7 @@ input[type=range]::-moz-range-thumb {
     initCanvas();
     bind();
     applyCollapsed();
+    setMuted(state.muted);
     renderAll();
     renderLog();
     setHint(state.stats.voyages
@@ -2091,6 +2382,7 @@ input[type=range]::-moz-range-thumb {
       <span class="bank-label">Bank</span>
       <strong id="bank">$0</strong>
     </div>
+    <button class="sound-btn" id="sound-btn" aria-pressed="true" aria-label="Mute sound">&#128266;</button>
     <div class="status-pill" id="status-pill" data-phase="idle">At dock</div>
   </div>
 </header>
@@ -2239,6 +2531,7 @@ input[type=range]::-moz-range-thumb {
     <p><strong>Call it home.</strong> Recalling freezes the multiplier and banks the value. The sail home is safe &mdash; the decision is the whole game.</p>
     <p><strong>Spend on the shipyard.</strong> Hulls and storm glasses cut risk, sonar speeds the haul, a larger hold raises how much you may stake, and an insurance policy refunds part of your stake when the worst happens &mdash; for a premium charged at launch.</p>
     <p><strong>Charter new purposes.</strong> Fishing is only the start. Trawling, salvage diving, and night cargo runs each rewrite the risk-and-reward curve.</p>
+    <p><strong>Listen to her.</strong> A sonar ping marks the time she is working, and it quickens and rises as the odds turn against you &mdash; you can judge the danger with your eyes shut. The speaker button in the header silences everything.</p>
   </div>
 </details>
 
