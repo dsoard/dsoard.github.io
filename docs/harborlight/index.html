@@ -114,6 +114,34 @@ input { font-family: inherit; }
 .bank strong.flash-up { color: var(--good); }
 .bank strong.flash-down { color: var(--danger); }
 
+.daily-btn {
+  flex: none;
+  padding: 8px 13px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  color: #2e2205;
+  background: linear-gradient(180deg, #ffd97a, var(--gold));
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+  animation: dailyPulse 2.4s ease-in-out infinite;
+}
+
+.daily-btn:hover { filter: brightness(1.08); animation: none; }
+
+@keyframes dailyPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(242,193,78,.5); }
+  50%      { box-shadow: 0 0 0 7px rgba(242,193,78,0); }
+}
+
+.daily-note {
+  margin: 10px 0 0;
+  font-size: 11.5px;
+  color: var(--gold);
+}
+
 .sound-btn {
   flex: none;
   width: 34px;
@@ -661,6 +689,74 @@ input[type=range]::-moz-range-thumb {
 .upgrade-buy:disabled { background: var(--line-strong); color: var(--muted); cursor: default; }
 .upgrade-buy.maxed { background: none; border: 1px solid rgba(79,209,197,.35); color: var(--accent); }
 
+/* ---------------- Coin store ---------------- */
+
+.store-list { display: flex; flex-direction: column; gap: 9px; }
+
+.store-state {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--muted);
+  padding: 11px 12px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 10px;
+}
+
+.store-state.is-closed { color: var(--muted); }
+.store-state strong { color: var(--gold); }
+
+.pack {
+  cursor: pointer;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 4px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 11px 12px;
+}
+
+.pack-head { display: flex; align-items: center; gap: 8px; }
+.pack-name { font-size: 13px; font-weight: 700; }
+
+.pack-tag {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--bg);
+  background: var(--accent);
+  border-radius: 999px;
+  padding: 2px 7px;
+}
+
+.pack-coins {
+  grid-column: 1;
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--gold);
+}
+
+.pack-buy {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  min-width: 74px;
+  padding: 9px 12px;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #04222b;
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.pack-buy:disabled { background: var(--line-strong); color: var(--muted); cursor: not-allowed; }
+
+.store-msg { margin: 2px 0 0; font-size: 11.5px; line-height: 1.5; color: var(--gold); min-height: 16px; }
+
 .log {
   list-style: none;
   margin: 0;
@@ -839,7 +935,8 @@ input[type=range]::-moz-range-thumb {
   var SAVE_KEY   = 'harborlight.save.v1';
   var START_BANK = 500;
   var MIN_STAKE  = 10;
-  var GRANT      = 100;
+  var DAILY      = 100;
+  var DAILY_MS   = 24 * 60 * 60 * 1000;
 
   var OUTBOUND_MS = 1300;
   var RETURN_MS   = 1700;
@@ -872,7 +969,10 @@ input[type=range]::-moz-range-thumb {
 
   /* ---------------- Upgrades ---------------- */
 
-  var HOLD_FRAC  = [0.40, 0.60, 0.80, 1.00];
+  // Larger Hold no longer gates the stake — it softens the weight penalty,
+  // the term that makes a heavy haul ride low. 12% a tier keeps the
+  // expected-value curve turning over (measured by Monte Carlo).
+  var HOLD_WEIGHT = [1.00, 0.88, 0.76, 0.64];
   var INS_COVER  = [0, 0.40, 0.60, 0.80];
   var INS_PREM   = [0, 0.05, 0.07, 0.09];
 
@@ -897,9 +997,9 @@ input[type=range]::-moz-range-thumb {
     },
     {
       id: 'hold', name: 'Larger Hold', costs: [250, 1000, 4000],
-      blurb: 'More gear aboard means more of your bank can ride on a single trip.',
-      effect: function (l) { return 'Stake up to ' + Math.round(HOLD_FRAC[l] * 100) + '% of bank'; },
-      next: function (l) { return 'Stake up to ' + Math.round(HOLD_FRAC[l + 1] * 100) + '% of bank'; }
+      blurb: 'Room below decks and ballast to match, so a heavy catch rides higher in the water. Blunts the extra risk a rich hold attracts — the one danger no other upgrade touches.',
+      effect: function (l) { return l ? 'Weight penalty −' + Math.round(l * 12) + '%' : null; },
+      next: function (l) { return 'Weight penalty −' + Math.round((l + 1) * 12) + '% total'; }
     },
     {
       id: 'insurance', name: 'Insurance Policy', costs: [750, 3000, 12000],
@@ -967,6 +1067,7 @@ input[type=range]::-moz-range-thumb {
       autoRecall: null,
       collapsed: { launch: false, side: false },
       muted: false,
+      dailyAt: 0,          // epoch ms of the last stipend collected
       stats: {
         voyages: 0, sunk: 0, recalled: 0,
         bestReturn: 0, bestMult: 1, longestTrip: 0,
@@ -993,6 +1094,7 @@ input[type=range]::-moz-range-thumb {
           s.insureOn = !!saved.insureOn;
           merge(s.collapsed, saved.collapsed);
           s.muted = !!saved.muted;
+          s.dailyAt = num(saved.dailyAt, 0);
           s.autoRecall = saved.autoRecall != null ? num(saved.autoRecall, null) : null;
           if (Array.isArray(saved.log)) s.log = saved.log.slice(-60);
         }
@@ -1047,7 +1149,8 @@ input[type=range]::-moz-range-thumb {
   function hazardAt(r, t) {
     var v = voyage(r.type);
     // Time at sea raises the base risk; a heavy hold raises it again.
-    var h = (hazardBase(v) + hazardRamp(v) * t) * (1 + BASE.weight * (r.mult - 1));
+    var h = (hazardBase(v) + hazardRamp(v) * t) *
+            (1 + BASE.weight * weightFactor() * (r.mult - 1));
     return h * modFactor(r, 'hazard');
   }
 
@@ -1061,14 +1164,14 @@ input[type=range]::-moz-range-thumb {
     r.mods.push({ type: type, factor: factor, until: r.t + seconds });
   }
 
-  function holdFrac() { return HOLD_FRAC[state.upgrades.hold]; }
+  function weightFactor() { return HOLD_WEIGHT[state.upgrades.hold]; }
   function coverage() { return INS_COVER[state.upgrades.insurance]; }
   function premiumRate() { return state.insureOn && state.upgrades.insurance > 0 ? INS_PREM[state.upgrades.insurance] : 0; }
 
+  // The house is yours to bet — the only ceiling is what you can actually pay,
+  // stake plus any insurance premium.
   function maxStake() {
-    var byHold = Math.floor(state.bank * holdFrac());
-    var byCash = Math.floor(state.bank / (1 + premiumRate()));
-    return Math.max(0, Math.min(byHold, byCash));
+    return Math.max(0, Math.floor(state.bank / (1 + premiumRate())));
   }
 
   function hasInstruments() { return state.upgrades.glass > 0; }
@@ -1096,7 +1199,7 @@ input[type=range]::-moz-range-thumb {
   function cacheDom() {
     ['bank', 'status-pill', 'stake', 'stake-slider', 'stake-cap-note', 'voyage-list',
      'insurance-field', 'insurance-toggle', 'insurance-terms', 'beacon-field', 'auto-recall',
-     'cost-summary', 'grant-btn', 'sea', 'sea-overlay', 'grid',
+     'cost-summary', 'daily-btn', 'daily-note', 'sea', 'sea-overlay', 'grid', 'store-list',
      'r-time', 'r-mult', 'r-haul', 'r-value', 'risk-fill', 'risk-label', 'risk-note',
      'action-btn', 'stage-hint', 'upgrade-list', 'log', 'stats', 'reset-btn', 'sound-btn'
     ].forEach(function (id) { el[id] = $(id); });
@@ -1186,7 +1289,7 @@ input[type=range]::-moz-range-thumb {
 
   function renderStakeControls() {
     var cap = maxStake();
-    el['stake-cap-note'].textContent = 'max ' + fmt(cap) + ' (' + pct(holdFrac()) + ' of bank)';
+    el['stake-cap-note'].textContent = 'max ' + fmt(cap) + ' — everything you have';
     el['stake-slider'].max = String(Math.max(MIN_STAKE, cap));
     el['stake-slider'].min = String(Math.min(MIN_STAKE, Math.max(0, cap)));
     var s = currentStake();
@@ -1212,7 +1315,6 @@ input[type=range]::-moz-range-thumb {
         (run.target ? 'Beacon set to bring her home at ×' + run.target.toFixed(2) + '.'
                     : 'Call her back whenever you like.');
       blockReason = null;
-      el['grant-btn'].hidden = true;
       return;
     }
 
@@ -1235,15 +1337,21 @@ input[type=range]::-moz-range-thumb {
     blockReason = null;
     if (stake <= 0) blockReason = 'Set a stake';
     else if (stake < MIN_STAKE) blockReason = 'Stake at least ' + fmt(MIN_STAKE);
-    else if (stake > cap) blockReason = 'Over your hold — max ' + fmt(cap);
+    else if (stake > cap) blockReason = 'More than you have — max ' + fmt(cap);
 
     if (stake > 0 && stake < MIN_STAKE) lines.push('<b>Minimum stake is ' + fmt(MIN_STAKE) + '.</b>');
-    else if (stake > cap) lines.push('<b>That is more than the hold can carry.</b>');
+    else if (stake > cap) lines.push('<b>That is more than your bank can cover.</b>');
 
     el['cost-summary'].innerHTML = lines.join('<br>');
 
+    // A player with nothing left should be told exactly when relief arrives.
     var broke = !run && maxStake() < MIN_STAKE;
-    el['grant-btn'].hidden = !broke;
+    el['daily-note'].hidden = !broke;
+    if (broke) {
+      el['daily-note'].textContent = dailyReady()
+        ? 'Out of funds — collect your daily stipend above.'
+        : 'Out of funds. The next stipend lands in ' + fmtLeft(dailyLeft()) + '.';
+    }
   }
 
   function renderUpgrades() {
@@ -1288,7 +1396,7 @@ input[type=range]::-moz-range-thumb {
       ['Premiums paid', fmt(s.insurancePaid)],
       ['Insurance recovered', fmt(s.insuranceRecovered)],
       ['Peak bank', fmt(s.peakBank)],
-      ['Harbor grants taken', s.grants]
+      ['Daily stipends taken', s.grants]
     ];
     var html = '';
     for (var i = 0; i < rows.length; i++) {
@@ -1305,6 +1413,75 @@ input[type=range]::-moz-range-thumb {
     renderCost();
     renderUpgrades();
     renderStats();
+    renderStore();
+  }
+
+  /* ---------------- Coin store ----------------
+     The shelf is built; the till is not connected.
+
+     PROVIDER is the single switch. While it is 'none' no purchase path
+     exists at all — the buttons explain themselves and grant nothing.
+     Wiring a real one means implementing buy() for that provider and
+     flipping this constant; nothing else in the game needs to change.
+
+     Two hard requirements before that switch moves:
+
+     1. A SERVER. Payment cannot be taken or verified from a static page.
+        A receipt has to be validated server-side (Apple/Google receipt
+        validation, or a Stripe webhook) before any coins are granted.
+     2. SERVER-SIDE BALANCES. The save lives in localStorage, where a
+        player can edit their bank freely. Selling coins that a buyer
+        could mint for themselves in devtools is not a product — the
+        balance has to move to an account the server owns.
+     --------------------------------------------- */
+
+  var PROVIDER = 'none';   // 'none' | 'appstore' | 'play' | 'stripe'
+
+  var PACKS = [
+    { id: 'purse',   name: "Deckhand's Purse",  coins: 2500,  price: '$0.99' },
+    { id: 'chest',   name: "Skipper's Chest",   coins: 15000, price: '$4.99', tag: 'Popular' },
+    { id: 'hold',    name: "Merchant's Hold",   coins: 35000, price: '$9.99', tag: 'Best value' },
+    { id: 'fortune', name: "Admiral's Fortune", coins: 80000, price: '$19.99' }
+  ];
+
+  function storeAvailable() { return PROVIDER !== 'none'; }
+
+  function buyPack(id) {
+    if (!storeAvailable()) {
+      // Nothing is charged and nothing is granted. Say so plainly.
+      var msg = document.getElementById('store-msg');
+      if (msg) msg.textContent =
+        'Coin purchases are not open yet — nothing was charged. They arrive with the app ' +
+        'release, which is also when balances move off this browser and onto an account.';
+      sfxClick();
+      return;
+    }
+    /* Each provider resolves a verified receipt server-side and the server
+       credits the account; the client never grants coins on its own. */
+    throw new Error('purchase provider "' + PROVIDER + '" is not implemented');
+  }
+
+  function renderStore() {
+    var open = storeAvailable();
+    var html = '<div class="store-state' + (open ? '' : ' is-closed') + '">' +
+      (open ? 'Purchases available.'
+            : '<strong>Not open yet.</strong> The coin store ships with the mobile release. ' +
+              'Nothing here charges anything, and no button grants coins.') +
+      '</div>';
+
+    for (var i = 0; i < PACKS.length; i++) {
+      var pk = PACKS[i];
+      html += '<div class="pack" data-pack="' + pk.id + '">' +
+                '<div class="pack-head">' +
+                  '<span class="pack-name">' + pk.name + '</span>' +
+                  (pk.tag ? '<span class="pack-tag">' + pk.tag + '</span>' : '') +
+                '</div>' +
+                '<div class="pack-coins">$' + pk.coins.toLocaleString('en-US') + '</div>' +
+                '<button class="pack-buy"' + (open ? '' : ' disabled') + '>' + pk.price + '</button>' +
+              '</div>';
+    }
+    html += '<p class="store-msg" id="store-msg"></p>';
+    el['store-list'].innerHTML = html;
   }
 
   /* ---------------- Sound ----------------
@@ -1815,6 +1992,8 @@ input[type=range]::-moz-range-thumb {
     el['risk-label'].textContent = run && run.phase === 'working' ? step.label : 'At rest';
     el['risk-label'].style.color = run && run.phase === 'working' ? step.color : 'var(--muted)';
 
+    renderDaily();
+
     var phase = run ? run.phase : 'idle';
     var pill = el['status-pill'];
     pill.dataset.phase = phase;
@@ -1831,7 +2010,12 @@ input[type=range]::-moz-range-thumb {
     var label, disabled = false, mode = '';
 
     if (!run) {
-      label = blockReason || 'Set sail — ' + fmt(currentStake() + round2(currentStake() * premiumRate()));
+      var st = currentStake();
+      var total = st + round2(st * premiumRate());
+      label = blockReason ||
+        (st > 0 && total >= state.bank - 0.5
+          ? 'Set sail — everything you have'
+          : 'Set sail — ' + fmt(total));
       disabled = !!blockReason;
     } else if (run.phase === 'outbound') {
       label = 'Abort — full refund';
@@ -1866,6 +2050,13 @@ input[type=range]::-moz-range-thumb {
   }
 
   function setHint(text) { el['stage-hint'].textContent = text; }
+
+  function renderDaily() {
+    var ready = dailyReady();
+    var btn = el['daily-btn'];
+    btn.hidden = !ready;
+    if (ready) btn.textContent = '+ $' + DAILY + ' daily';
+  }
 
   /* ---------------- Collapsible panels ---------------- */
 
@@ -2224,14 +2415,26 @@ input[type=range]::-moz-range-thumb {
     dirty = true;
   }
 
-  function takeGrant() {
-    if (run || maxStake() >= MIN_STAKE) return;
-    addBank(GRANT);
+  function dailyLeft() { return Math.max(0, state.dailyAt + DAILY_MS - Date.now()); }
+  function dailyReady() { return dailyLeft() === 0; }
+
+  function claimDaily() {
+    if (!dailyReady()) return;
+    state.dailyAt = Date.now();
+    addBank(DAILY);
     state.stats.grants++;
     sfxCoin();
-    logMsg('The harbormaster fronts you ' + fmt(GRANT) + '. Try not to need it again.', 'gold');
+    logMsg('Collected the daily harbor stipend — ' + fmt(DAILY) + '.', 'gold');
     save();
     dirty = true;
+  }
+
+  function fmtLeft(ms) {
+    var s = Math.ceil(ms / 1000);
+    var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+    if (h) return h + 'h ' + m + 'm';
+    if (m) return m + 'm';
+    return s + 's';
   }
 
   /* ---------------- Wiring ---------------- */
@@ -2250,7 +2453,7 @@ input[type=range]::-moz-range-thumb {
       setMuted(!state.muted);
       if (!state.muted) sfxClick();
     });
-    el['grant-btn'].addEventListener('click', takeGrant);
+    el['daily-btn'].addEventListener('click', claimDaily);
 
     document.querySelectorAll('[data-collapse]').forEach(function (btn) {
       btn.addEventListener('click', function () { sfxClick(); toggleCollapse(btn.dataset.collapse); });
@@ -2292,6 +2495,11 @@ input[type=range]::-moz-range-thumb {
       state.selected = id;
       save();
       dirty = true;
+    });
+
+    el['store-list'].addEventListener('click', function (e) {
+      var pk = e.target.closest('[data-pack]');
+      if (pk) buyPack(pk.dataset.pack);
     });
 
     el['upgrade-list'].addEventListener('click', function (e) {
@@ -2382,6 +2590,7 @@ input[type=range]::-moz-range-thumb {
       <span class="bank-label">Bank</span>
       <strong id="bank">$0</strong>
     </div>
+    <button class="daily-btn" id="daily-btn" hidden>+ $100 daily</button>
     <button class="sound-btn" id="sound-btn" aria-pressed="true" aria-label="Mute sound">&#128266;</button>
     <div class="status-pill" id="status-pill" data-phase="idle">At dock</div>
   </div>
@@ -2446,7 +2655,7 @@ input[type=range]::-moz-range-thumb {
 
       <div class="cost-summary" id="cost-summary"></div>
 
-      <button class="ghost" id="grant-btn" hidden>Accept a harbor grant ($100)</button>
+      <p class="daily-note" id="daily-note" hidden></p>
     </div>
   </section>
 
@@ -2502,6 +2711,7 @@ input[type=range]::-moz-range-thumb {
       <div class="tabs" role="tablist">
         <button class="tab is-active" data-tab="shipyard" role="tab">Shipyard</button>
         <button class="tab" data-tab="log" role="tab">Log</button>
+        <button class="tab" data-tab="store" role="tab">Coins</button>
         <button class="tab" data-tab="stats" role="tab">Records</button>
       </div>
 
@@ -2511,6 +2721,10 @@ input[type=range]::-moz-range-thumb {
 
       <div class="tab-body" data-panel="log">
         <ul id="log" class="log"></ul>
+      </div>
+
+      <div class="tab-body" data-panel="store">
+        <div id="store-list" class="store-list"></div>
       </div>
 
       <div class="tab-body" data-panel="stats">
@@ -2529,7 +2743,9 @@ input[type=range]::-moz-range-thumb {
     <p><strong>Time is also the risk.</strong> Every second carries a chance the boat goes down, and that chance <em>climbs</em> the longer you stay out. A sinking costs the stake and the entire haul.</p>
     <p><strong>A full hold rides low.</strong> Danger scales with the haul as well as the clock, so the richer the boat gets, the more the sea wants it. That is why no set of upgrades ever makes a long trip safe &mdash; anything that grows the haul faster also puts it at risk sooner.</p>
     <p><strong>Call it home.</strong> Recalling freezes the multiplier and banks the value. The sail home is safe &mdash; the decision is the whole game.</p>
-    <p><strong>Spend on the shipyard.</strong> Hulls and storm glasses cut risk, sonar speeds the haul, a larger hold raises how much you may stake, and an insurance policy refunds part of your stake when the worst happens &mdash; for a premium charged at launch.</p>
+    <p><strong>Bet the house if you like.</strong> There is no cap on a stake beyond what you can actually pay. Staking everything is always allowed, and always exactly as dangerous as it sounds.</p>
+    <p><strong>Spend on the shipyard.</strong> Hulls and storm glasses cut risk, sonar speeds the haul, a larger hold blunts the extra danger a rich hold attracts, and an insurance policy refunds part of your stake when the worst happens &mdash; for a premium charged at launch.</p>
+    <p><strong>A stipend a day.</strong> The harbor pays out $100 once every twenty-four hours, waiting in the header whenever it is due. It is the only free money in the game, so losing the lot costs you real time.</p>
     <p><strong>Charter new purposes.</strong> Fishing is only the start. Trawling, salvage diving, and night cargo runs each rewrite the risk-and-reward curve.</p>
     <p><strong>Listen to her.</strong> A sonar ping marks the time she is working, and it quickens and rises as the odds turn against you &mdash; you can judge the danger with your eyes shut. The speaker button in the header silences everything.</p>
   </div>
