@@ -1197,7 +1197,7 @@ input[type=range]::-moz-range-thumb {
   function $(id) { return document.getElementById(id); }
 
   function cacheDom() {
-    ['bank', 'status-pill', 'stake', 'stake-slider', 'stake-cap-note', 'voyage-list',
+    ['bank', 'status-pill', 'stake', 'stake-slider', 'voyage-list',
      'insurance-field', 'insurance-toggle', 'insurance-terms', 'beacon-field', 'auto-recall',
      'cost-summary', 'daily-btn', 'daily-note', 'sea', 'sea-overlay', 'grid', 'store-list',
      'r-time', 'r-mult', 'r-haul', 'r-value', 'risk-fill', 'risk-label', 'risk-note',
@@ -1289,7 +1289,6 @@ input[type=range]::-moz-range-thumb {
 
   function renderStakeControls() {
     var cap = maxStake();
-    el['stake-cap-note'].textContent = 'max ' + fmt(cap) + ' — everything you have';
     el['stake-slider'].max = String(Math.max(MIN_STAKE, cap));
     el['stake-slider'].min = String(Math.min(MIN_STAKE, Math.max(0, cap)));
     var s = currentStake();
@@ -2611,7 +2610,6 @@ input[type=range]::-moz-range-thumb {
       <div class="field">
         <div class="field-head">
           <label for="stake">Stake</label>
-          <span class="field-note" id="stake-cap-note">max &mdash;</span>
         </div>
         <div class="stake-row">
           <span class="currency">$</span>
