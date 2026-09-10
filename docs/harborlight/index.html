@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Harborlight — sponsor a sailboat, stake your funds, and decide when to call it home.">
+<meta name="description" content="Harborlight — send a boat out, watch the catch build, and decide when to call her home.">
 <meta name="author" content="David Soard">
 <meta name="copyright" content="Copyright (c) 2026 David Soard. All rights reserved.">
 <title>Harborlight | David Soard</title>
@@ -914,9 +914,13 @@ input[type=range]::-moz-range-thumb {
    HARBORLIGHT — a sailboat venture
    Copyright (c) 2026 David Soard. All rights reserved.
    ---------------------------------------------------------
-   Stake your bank, send the boat out, and decide when to
-   call it home. Every second at sea compounds the haul and
+   Send a boat out, watch the catch build, and decide when to
+   call her home. Every second at sea compounds the catch and
    raises the odds the sea keeps it.
+
+   Nothing is ever wagered: a trip costs a provision, and a
+   sinking costs only the catch aboard. Your bank never falls
+   from a voyage.
    ========================================================= */
 
 (function () {
@@ -925,8 +929,9 @@ input[type=range]::-moz-range-thumb {
   /* ------------------------------------------------------
      Balance constants
      ------------------------------------------------------
-     The multiplier grows as exp(growth * t). The per-second
-     hazard rate is (hazard + ramp * t) * (1 + weight * haul),
+     The catch grows as scale * (exp(growth * t) - 1), scaled by
+     events. The per-second hazard rate is
+     (hazard + ramp * t) * (1 + weight * catch),
      so danger accelerates on two fronts: time at sea, and how
      heavy the hold is riding. That second term is what keeps
      the game honest — every upgrade that grows the haul faster
@@ -941,42 +946,8 @@ input[type=range]::-moz-range-thumb {
 
   var BASE = { growth: 0.0130, hazard: 0.0050, ramp: 0.00018, weight: 0.30 };
 
-  /* ---------------- Game mode ----------------
-     Two economies share this engine.
-
-     'wager'  — you stake your own funds; a sinking takes the stake.
-                This is betting, and app-store age-rating questionnaires
-                classify frequent betting as simulated gambling (18+).
-
-     'voyage' — push-your-luck. Nothing is staked. The boat *accumulates*
-                a catch, a sinking costs only the catch aboard, and the
-                bank can never go down from a voyage. Nothing is wagered,
-                so it rates as an ordinary game.
-
-     The decision curve is identical in both: the catch grows on the same
-     exponential, the hazard uses the same weight coupling, and the
-     expected value peaks and collapses at the same times. Only what is
-     at risk changes.
-
-     Override for testing with ?mode=voyage or ?mode=wager.
-     --------------------------------------------- */
-
-  var DEFAULT_MODE = 'wager';   // store builds ship 'voyage'
-
-  var MODE = (function () {
-    try {
-      var m = new URLSearchParams(window.location.search).get('mode');
-      if (m === 'voyage' || m === 'wager') return m;
-    } catch (e) { /* no URLSearchParams, fall through */ }
-    return DEFAULT_MODE;
-  })();
-
-  function wagering() { return MODE === 'wager'; }
-
-  // Wager saves keep their original key so existing progress survives.
-  var SAVE_KEY   = wagering() ? 'harborlight.save.v1' : 'harborlight.voyage.v1';
-  var START_BANK = wagering() ? 500 : 150;
-  var MIN_STAKE  = 10;
+  var SAVE_KEY   = 'harborlight.voyage.v1';
+  var START_BANK = 150;
   var DAILY      = 100;
   var DAILY_MS   = 24 * 60 * 60 * 1000;
 
@@ -992,8 +963,7 @@ input[type=range]::-moz-range-thumb {
     { n: 25, cost: 500, tag: 'Saves 20%' }
   ];
 
-  // What a full hold is worth on each ground. Standing in for the stake,
-  // so the tuned risk curve carries over unchanged.
+  // What a full hold is worth on each ground — the scale the catch grows against.
   var CATCH = { fishing: 90, trawling: 300, salvage: 1100, cargo: 4500 };
 
   // Salvage Locker: the share of the catch that survives a sinking.
@@ -1030,12 +1000,10 @@ input[type=range]::-moz-range-thumb {
 
   /* ---------------- Upgrades ---------------- */
 
-  // Larger Hold no longer gates the stake — it softens the weight penalty,
-  // the term that makes a heavy haul ride low. 12% a tier keeps the
-  // expected-value curve turning over (measured by Monte Carlo).
+  // Larger Hold softens the weight penalty, the term that makes a heavy
+  // catch ride low. 12% a tier keeps the expected-value curve turning over
+  // (measured by Monte Carlo).
   var HOLD_WEIGHT = [1.00, 0.88, 0.76, 0.64];
-  var INS_COVER  = [0, 0.40, 0.60, 0.80];
-  var INS_PREM   = [0, 0.05, 0.07, 0.09];
 
   var UPGRADES = [
     {
@@ -1052,10 +1020,7 @@ input[type=range]::-moz-range-thumb {
     },
     {
       id: 'sonar', name: 'Sonar Array', costs: [300, 1200, 4800],
-      blurb: function () {
-        return 'Finds the shoal instead of hunting for it. The ' + (wagering() ? 'haul' : 'catch') +
-          ' compounds faster every second — though a fuller hold rides lower, so the risk climbs with it.';
-      },
+      blurb: 'Finds the shoal instead of hunting for it. The catch compounds faster every second — though a fuller hold rides lower, so the risk climbs with it.',
       effect: function (l) { return l ? 'Haul growth +' + Math.round(l * 10) + '%' : null; },
       next: function (l) { return 'Haul growth +' + Math.round((l + 1) * 10) + '% total'; }
     },
@@ -1067,33 +1032,16 @@ input[type=range]::-moz-range-thumb {
       next: function (l) { return 'Weight penalty −' + Math.round((l + 1) * 12) + '% total'; }
     },
     {
-      id: 'insurance',
-      name: function () { return wagering() ? 'Insurance Policy' : 'Salvage Locker'; },
-      costs: [750, 3000, 12000],
-      blurb: function () {
-        return wagering()
-          ? 'An underwriter at the harbor office. Refunds part of your stake if the boat goes down — for a premium charged at launch. The haul is never covered.'
-          : 'A sealed, buoyant hold. Part of the catch floats free when she goes down, so a bad trip is never a total loss. Costs nothing to carry.';
-      },
-      effect: function (l) {
-        if (!l) return null;
-        return wagering()
-          ? 'Refunds ' + Math.round(INS_COVER[l] * 100) + '% of stake · ' +
-            Math.round(INS_PREM[l] * 100) + '% premium'
-          : 'Saves ' + Math.round(LOCKER[l] * 100) + '% of the catch';
-      },
-      next: function (l) {
-        return wagering()
-          ? 'Refunds ' + Math.round(INS_COVER[l + 1] * 100) + '% of stake for a ' +
-            Math.round(INS_PREM[l + 1] * 100) + '% premium'
-          : 'Saves ' + Math.round(LOCKER[l + 1] * 100) + '% of the catch from a sinking';
-      }
+      id: 'insurance', name: 'Salvage Locker', costs: [750, 3000, 12000],
+      blurb: 'A sealed, buoyant hold. Part of the catch floats free when she goes down, so a bad trip is never a total loss. Costs nothing to carry.',
+      effect: function (l) { return l ? 'Saves ' + Math.round(LOCKER[l] * 100) + '% of the catch' : null; },
+      next: function (l) { return 'Saves ' + Math.round(LOCKER[l + 1] * 100) + '% of the catch from a sinking'; }
     },
     {
       id: 'beacon', name: 'Radio Beacon', costs: [2500],
-      blurb: 'Set a multiplier before you launch and the boat turns for home the moment it hits — whether or not you are watching.',
+      blurb: 'Name a catch value before you launch and the boat turns for home the moment she reaches it — whether or not you are watching.',
       effect: function (l) { return l ? 'Auto-recall armed' : null; },
-      next: function () { return 'Unlocks auto-recall at a target multiplier'; }
+      next: function () { return 'Unlocks auto-recall at a target catch'; }
     }
   ];
 
@@ -1102,25 +1050,25 @@ input[type=range]::-moz-range-thumb {
   var EVENTS = [
     { id: 'shoal',    weight: 22, treasure: false, tone: 'gold',
       text: 'A shoal breaks the surface',
-      apply: function (r) { var b = 1.05 + Math.random() * 0.09; r.mult *= b; return '+' + pct(b - 1) + ' haul'; } },
+      apply: function (r) { var b = 1.05 + Math.random() * 0.09; r.catchMul *= b; return '+' + pct(b - 1) + ' catch'; } },
     { id: 'crate',    weight: 10, treasure: true, tone: 'gold',
       text: 'Something heavy comes up on the line',
-      apply: function (r) { var b = 1.15 + Math.random() * 0.23; r.mult *= b; return '+' + pct(b - 1) + ' haul'; } },
+      apply: function (r) { var b = 1.15 + Math.random() * 0.23; r.catchMul *= b; return '+' + pct(b - 1) + ' catch'; } },
     { id: 'calm',     weight: 14, treasure: false, tone: 'good',
       text: 'The water goes glassy',
       apply: function (r) { addMod(r, 'hazard', 0.55, 8); return 'risk halved for 8s'; } },
     { id: 'current',  weight: 12, treasure: false, tone: 'info',
       text: 'A warm current runs through the grounds',
-      apply: function (r) { addMod(r, 'growth', 1.55, 7); return 'haul growth up for 7s'; } },
+      apply: function (r) { addMod(r, 'growth', 1.55, 7); return 'catch growing faster 7s'; } },
     { id: 'squall',   weight: 20, treasure: false, tone: 'bad',
       text: 'A squall rolls in off the cape',
       apply: function (r) { addMod(r, 'hazard', 2.10, 10); return 'risk doubled for 10s'; } },
     { id: 'tear',     weight: 14, treasure: false, tone: 'bad',
       text: 'A net tears and part of the catch spills',
-      apply: function (r) { var b = 0.10 + Math.random() * 0.08; r.mult *= (1 - b); return '−' + pct(b) + ' haul'; } },
+      apply: function (r) { var b = 0.10 + Math.random() * 0.08; r.catchMul *= (1 - b); return '−' + pct(b) + ' catch'; } },
     { id: 'becalmed', weight: 12, treasure: false, tone: 'bad',
       text: 'The wind dies and she sits becalmed',
-      apply: function (r) { addMod(r, 'growth', 0.35, 8); return 'haul growth stalled 8s'; } },
+      apply: function (r) { addMod(r, 'growth', 0.35, 8); return 'catch stalled 8s'; } },
     { id: 'patrol',   weight: 8, treasure: false, tone: 'bad', only: 'cargo',
       text: 'A patrol light sweeps the water',
       apply: function (r) { addMod(r, 'hazard', 2.40, 6); return 'risk spiking for 6s'; } }
@@ -1139,7 +1087,6 @@ input[type=range]::-moz-range-thumb {
       upgrades: { hull: 0, glass: 0, sonar: 0, hold: 0, insurance: 0, beacon: 0 },
       chartered: { fishing: true },
       selected: 'fishing',
-      insureOn: false,
       autoRecall: null,
       collapsed: { launch: false, side: false },
       muted: false,
@@ -1168,7 +1115,6 @@ input[type=range]::-moz-range-thumb {
           merge(s.stats, saved.stats);
           s.chartered.fishing = true;
           if (saved.selected) s.selected = saved.selected;
-          s.insureOn = !!saved.insureOn;
           merge(s.collapsed, saved.collapsed);
           s.muted = !!saved.muted;
           s.dailyAt = num(saved.dailyAt, 0);
@@ -1228,7 +1174,7 @@ input[type=range]::-moz-range-thumb {
     var v = voyage(r.type);
     // Time at sea raises the base risk; a heavy hold raises it again.
     var h = (hazardBase(v) + hazardRamp(v) * t) *
-            (1 + BASE.weight * weightFactor() * (r.mult - 1));
+            (1 + BASE.weight * weightFactor() * catchFrac(r));
     return h * modFactor(r, 'hazard');
   }
 
@@ -1243,19 +1189,16 @@ input[type=range]::-moz-range-thumb {
   }
 
   function weightFactor() { return HOLD_WEIGHT[state.upgrades.hold]; }
-  function coverage() { return INS_COVER[state.upgrades.insurance]; }
-  function premiumRate() { return state.insureOn && state.upgrades.insurance > 0 ? INS_PREM[state.upgrades.insurance] : 0; }
 
-  // The house is yours to bet — the only ceiling is what you can actually pay,
-  // stake plus any insurance premium.
-  function maxStake() {
-    return Math.max(0, Math.floor(state.bank / (1 + premiumRate())));
-  }
 
   function hasInstruments() { return state.upgrades.glass > 0; }
 
   function catchScale(v) { return CATCH[v.id] || CATCH.fishing; }
-  function lockerShare() { return wagering() ? 0 : LOCKER[state.upgrades.insurance]; }
+  function lockerShare() { return LOCKER[state.upgrades.insurance]; }
+
+  /* What fraction of a full hold she is carrying. Growth raises it; events
+     scale it. Never negative — an empty net is empty, not a debt. */
+  function catchFrac(r) { return Math.max(0, (r.mult - 1) * r.catchMul); }
 
   /* ---- Provisions (voyage mode) ---- */
 
@@ -1299,8 +1242,8 @@ input[type=range]::-moz-range-thumb {
   function $(id) { return document.getElementById(id); }
 
   function cacheDom() {
-    ['bank', 'status-pill', 'stake', 'stake-slider', 'voyage-list',
-     'insurance-field', 'insurance-toggle', 'insurance-terms', 'beacon-field', 'auto-recall',
+    ['bank', 'status-pill', 'voyage-list',
+     'beacon-field', 'auto-recall',
      'cost-summary', 'daily-btn', 'daily-note', 'sea', 'sea-overlay', 'grid', 'store-list',
      'r-time', 'r-mult', 'r-haul', 'r-value', 'risk-fill', 'risk-label', 'risk-note',
      'action-btn', 'stage-hint', 'upgrade-list', 'log', 'stats', 'reset-btn', 'sound-btn'
@@ -1359,10 +1302,9 @@ input[type=range]::-moz-range-thumb {
       var afford = state.bank >= v.charter;
       var cls = 'voyage' + (active ? ' is-active' : '') + (owned ? '' : ' is-locked') +
                 (!owned && afford ? ' is-affordable' : '');
-      var meta = !owned ? v.blurb
-        : wagering()
-          ? 'Growth ×' + v.g.toFixed(2) + ' · Risk ×' + v.h.toFixed(2) + ' · Ramp ×' + v.k.toFixed(2)
-          : 'Full hold ' + fmt(catchScale(v)) + ' · Risk ×' + v.h.toFixed(2) + ' · Ramp ×' + v.k.toFixed(2);
+      var meta = owned
+        ? 'Full hold ' + fmt(catchScale(v)) + ' · Risk ×' + v.h.toFixed(2) + ' · Ramp ×' + v.k.toFixed(2)
+        : v.blurb;
       html += '<div class="' + cls + '" data-voyage="' + v.id + '">' +
                 '<span class="voyage-icon">' + v.icon + '</span>' +
                 '<span class="voyage-body">' +
@@ -1376,94 +1318,17 @@ input[type=range]::-moz-range-thumb {
     el['voyage-list'].innerHTML = html;
   }
 
-  function renderInsurance() {
-    var lvl = state.upgrades.insurance;
-    // The locker is passive — there is nothing to switch on in voyage mode.
-    el['insurance-field'].hidden = lvl === 0 || !wagering();
-    if (lvl > 0) {
-      el['insurance-terms'].textContent = 'Premium ' + pct(INS_PREM[lvl]) + ' of stake, refunds ' +
-        pct(INS_COVER[lvl]) + ' of stake if she sinks';
-      el['insurance-toggle'].checked = state.insureOn;
-    }
+  function renderBeacon() {
     el['beacon-field'].hidden = state.upgrades.beacon === 0;
     if (state.upgrades.beacon > 0 && document.activeElement !== el['auto-recall']) {
       el['auto-recall'].value = state.autoRecall != null ? state.autoRecall : '';
     }
   }
 
-  function renderStakeControls() {
-    if (!wagering()) return;
-    var cap = maxStake();
-    el['stake-slider'].max = String(Math.max(MIN_STAKE, cap));
-    el['stake-slider'].min = String(Math.min(MIN_STAKE, Math.max(0, cap)));
-    var s = currentStake();
-    if (document.activeElement !== el.stake) el.stake.value = s > 0 ? String(s) : '';
-    el['stake-slider'].value = String(s);
-  }
 
-  function currentStake() {
-    var v = Math.floor(num(el.stake.value, 0));
-    return isFinite(v) && v > 0 ? v : 0;
-  }
 
+  /* The panel explains the ground she is working and what a provision buys. */
   function renderCost() {
-    if (!wagering()) return renderVoyageCost();
-
-    var stake = currentStake();
-    var cap = maxStake();
-
-    if (run) {
-      // A voyage is in flight — the panel reports on her, not on the next stake.
-      var rv = voyage(run.type);
-      el['cost-summary'].innerHTML =
-        '<b>' + rv.name + '</b> is at sea with ' + fmt(run.stake) + ' staked' +
-        (run.premium > 0 ? ' and ' + fmt(run.premium) + ' insured' : '') + '.<br>' +
-        (run.target ? 'Beacon set to bring her home at ×' + run.target.toFixed(2) + '.'
-                    : 'Call her back whenever you like.');
-
-      blockReason = null;
-      return;
-    }
-
-    var prem = round2(stake * premiumRate());
-    var v = voyage(state.selected);
-    var lines = [];
-
-    if (stake > 0) {
-      lines.push('Leaves your bank now: <b>' + fmt(stake + prem) + '</b>' +
-        (prem > 0 ? ' (stake ' + fmt(stake) + ' + premium ' + fmt(prem) + ')' : ''));
-      if (premiumRate() > 0) {
-        lines.push('If she sinks you keep <b>' + fmt(round2(stake * coverage())) + '</b> of the stake.');
-      }
-      var g = growthRate(v);
-      lines.push('At this rate the haul doubles in about <b>' + Math.round(Math.LN2 / g) + 's</b>.');
-    } else {
-      lines.push('Choose a stake to see the terms.');
-    }
-
-    blockReason = null;
-    if (stake <= 0) blockReason = 'Set a stake';
-    else if (stake < MIN_STAKE) blockReason = 'Stake at least ' + fmt(MIN_STAKE);
-    else if (stake > cap) blockReason = 'More than you have — max ' + fmt(cap);
-
-    if (stake > 0 && stake < MIN_STAKE) lines.push('<b>Minimum stake is ' + fmt(MIN_STAKE) + '.</b>');
-    else if (stake > cap) lines.push('<b>That is more than your bank can cover.</b>');
-
-    el['cost-summary'].innerHTML = lines.join('<br>');
-
-    // A player with nothing left should be told exactly when relief arrives.
-    var broke = !run && maxStake() < MIN_STAKE;
-    el['daily-note'].hidden = !broke;
-    if (broke) {
-      el['daily-note'].textContent = dailyReady()
-        ? 'Out of funds — collect your daily stipend above.'
-        : 'Out of funds. The next stipend lands in ' + fmtLeft(dailyLeft()) + '.';
-    }
-  }
-
-  /* Push-your-luck has no stake to price, so the panel explains the ground
-     she is working and what a provision buys. */
-  function renderVoyageCost() {
     var v = voyage(state.selected);
     blockReason = null;
 
@@ -1534,16 +1399,15 @@ input[type=range]::-moz-range-thumb {
       ['Brought home', s.recalled],
       ['Lost at sea', s.sunk],
       ['Loss rate', s.voyages ? pct(s.sunk / s.voyages) : '—'],
-      [wagering() ? 'Best single return' : 'Best single catch', fmt(s.bestReturn)],
-      ['Best multiplier', '×' + s.bestMult.toFixed(2)],
+      ['Best single catch', fmt(s.bestReturn)],
       ['Longest trip', s.longestTrip.toFixed(1) + 's'],
       ['Total earned', fmt(s.earned)],
-      [wagering() ? 'Total lost' : 'Catch lost at sea', fmt(s.lost)],
+      ['Catch lost at sea', fmt(s.lost)],
       ['Net', fmt(round2(s.earned - s.lost))],
-      [wagering() ? 'Premiums paid' : 'Provisions spent', wagering() ? fmt(s.insurancePaid) : s.voyages],
-      [wagering() ? 'Insurance recovered' : 'Saved by the locker', fmt(s.insuranceRecovered)],
+      ['Provisions spent', s.voyages],
+      ['Saved by the locker', fmt(s.insuranceRecovered)],
       ['Peak bank', fmt(s.peakBank)],
-      [wagering() ? 'Daily stipends taken' : 'Daily restocks taken', s.grants]
+      ['Daily stipends taken', s.grants]
     ];
     var html = '';
     for (var i = 0; i < rows.length; i++) {
@@ -1555,8 +1419,7 @@ input[type=range]::-moz-range-thumb {
   function renderAll() {
     el.bank.textContent = fmt(state.bank);
     renderVoyages();
-    renderInsurance();
-    renderStakeControls();
+    renderBeacon();
     renderCost();
     renderUpgrades();
     renderStats();
@@ -1584,26 +1447,16 @@ input[type=range]::-moz-range-thumb {
 
   var PROVIDER = 'none';   // 'none' | 'appstore' | 'play' | 'stripe'
 
-  /* Wager mode sells currency to stake — the pattern that forces an 18+
-     rating. Push-your-luck sells provisions and permanent unlocks instead,
-     which is ordinary game monetisation. */
-  var PACKS_WAGER = [
-    { id: 'purse',   name: "Deckhand's Purse",  detail: '$2,500',  price: '$0.99' },
-    { id: 'chest',   name: "Skipper's Chest",   detail: '$15,000', price: '$4.99', tag: 'Popular' },
-    { id: 'hold',    name: "Merchant's Hold",   detail: '$35,000', price: '$9.99', tag: 'Best value' },
-    { id: 'fortune', name: "Admiral's Fortune", detail: '$80,000', price: '$19.99' }
-  ];
-
-  /* Selling funds is fine here: in voyage mode nothing is ever wagered, so
-     these buy provisions and upgrades rather than bankrolling a bet. */
-  var PACKS_VOYAGE = [
+  /* Selling funds is fine here: nothing is ever wagered, so these buy
+     provisions and upgrades rather than bankrolling a bet. */
+  var PACKS = [
     { id: 'purse',   name: "Deckhand's Purse",  detail: '$2,500',  price: '$0.99' },
     { id: 'chest',   name: "Skipper's Chest",   detail: '$15,000', price: '$4.99', tag: 'Popular' },
     { id: 'hold',    name: "Merchant's Hold",   detail: '$35,000', price: '$9.99', tag: 'Best value' },
     { id: 'logbook', name: "Captain's Logbook", detail: 'Every ground chartered', price: '$19.99' }
   ];
 
-  function packs() { return wagering() ? PACKS_WAGER : PACKS_VOYAGE; }
+
 
   function storeAvailable() { return PROVIDER !== 'none'; }
 
@@ -1629,8 +1482,8 @@ input[type=range]::-moz-range-thumb {
     var html = '';
 
     // Provisions are bought with money you earned in game — this part works.
-    if (!wagering()) {
-      html += '<div class="store-section">Chandler &mdash; paid from your bank</div>';
+    html += '<div class="store-section">Chandler &mdash; paid from your bank</div>';
+    {
       for (var q = 0; q < PROV_PACKS.length; q++) {
         var pv = PROV_PACKS[q];
         var afford = state.bank >= pv.cost;
@@ -1653,7 +1506,7 @@ input[type=range]::-moz-range-thumb {
               'Nothing below charges anything, and no button grants funds.') +
       '</div>';
 
-    var list = packs();
+    var list = PACKS;
     for (var i = 0; i < list.length; i++) {
       var pk = list[i];
       html += '<div class="pack" data-pack="' + pk.id + '">' +
@@ -1907,35 +1760,21 @@ input[type=range]::-moz-range-thumb {
     if (run) return;
 
     var v = voyage(state.selected);
-    var stake = 0, prem = 0, insured = false, scale;
 
-    if (wagering()) {
-      stake = currentStake();
-      if (stake < MIN_STAKE || stake > maxStake()) return;
-      insured = premiumRate() > 0;
-      prem = round2(stake * premiumRate());
-      addBank(-(stake + prem));
-      if (prem > 0) state.stats.insurancePaid = round2(state.stats.insurancePaid + prem);
-      scale = stake;              // the haul is measured against what you put up
-    } else {
-      // Push-your-luck: a provision buys the trip. No money is ever at risk.
-      if (!spendProvision()) return;
-      scale = catchScale(v);      // the ground decides what a full hold is worth
-    }
+    // A provision buys the trip. No money is ever at risk.
+    if (!spendProvision()) return;
 
     state.stats.voyages++;
 
     run = {
       type: v.id,
-      stake: stake,
-      scale: scale,
-      premium: prem,
-      insured: insured,
-      cover: wagering() ? (insured ? coverage() : 0) : lockerShare(),
+      scale: catchScale(v),       // the ground decides what a full hold is worth
+      cover: lockerShare(),
       phase: 'outbound',
       phaseT: 0,
       t: 0,
       mult: 1,
+      catchMul: 1,
       survival: 1,
       mods: [],
       nextEvent: 6 + Math.random() * 7,
@@ -1948,40 +1787,27 @@ input[type=range]::-moz-range-thumb {
 
     sfxSail();
     ambientStart();
-    logMsg(wagering()
-      ? v.name + ' — staked ' + fmt(stake) + (insured ? ' (insured, ' + fmt(prem) + ' premium)' : '')
-      : v.name + ' — put to sea (' + plural(provisions(), 'provision') + ' left)', 'info');
-    setHint('She is clearing the harbor. The ' + (wagering() ? 'haul' : 'catch') +
-            ' starts growing once she reaches the grounds.');
+    logMsg(v.name + ' — put to sea (' + plural(provisions(), 'provision') + ' left)', 'info');
+    setHint('She is clearing the harbor. The catch starts growing once she reaches the grounds.');
     save();
     dirty = true;
   }
 
-  // What is aboard right now: the stake and its growth when wagering,
-  // pure accumulated catch when not.
-  function aboard(r) {
-    return wagering() ? r.stake * r.mult : r.scale * (r.mult - 1);
-  }
+  // What the hold is worth right now.
+  function aboard(r) { return r.scale * catchFrac(r); }
 
   function recall(reason) {
     if (!run || (run.phase !== 'working' && run.phase !== 'outbound')) return;
 
     if (run.phase === 'outbound') {
       // Aborted before reaching the grounds — nothing is spent.
-      if (wagering()) {
-        addBank(run.stake + run.premium);
-        if (run.premium > 0) state.stats.insurancePaid = round2(state.stats.insurancePaid - run.premium);
-      } else {
-        state.prov++;
-      }
+      state.prov++;
       state.stats.voyages--;
       sfxAbort();
       ambientStop();
-      logMsg(wagering() ? 'Called back before the harbor mouth — stake refunded.'
-                        : 'Called back before the harbor mouth — provision returned.', '');
+      logMsg('Called back before the harbor mouth — provision returned.', '');
       run = null;
-      setHint(wagering() ? 'Nothing ventured. Stake a fresh voyage when you are ready.'
-                         : 'Nothing ventured. Send her out again when you are ready.');
+      setHint('Nothing ventured. Send her out again when you are ready.');
       save();
       dirty = true;
       return;
@@ -1993,36 +1819,25 @@ input[type=range]::-moz-range-thumb {
     sfxBell();
     floatMsg('Turning for home', 'info');
     setHint(reason === 'beacon'
-      ? 'The beacon tripped at ' +
-        (wagering() ? '×' + run.mult.toFixed(2) : fmt(aboard(run))) + '. She is sailing home.'
+      ? 'The beacon tripped at ' + fmt(aboard(run)) + '. She is sailing home.'
       : 'She is sailing home with ' + fmt(aboard(run)) + ' aboard. The trip back is safe.');
   }
 
   function settleReturn() {
     var value = round2(aboard(run));
-    var profit = wagering() ? round2(value - run.stake - run.premium) : value;
 
     addBank(value);
     state.stats.recalled++;
-    state.stats.earned = round2(state.stats.earned + Math.max(0, profit));
-    if (profit < 0) state.stats.lost = round2(state.stats.lost - profit);
+    state.stats.earned = round2(state.stats.earned + value);
     if (value > state.stats.bestReturn) state.stats.bestReturn = value;
     if (run.mult > state.stats.bestMult) state.stats.bestMult = run.mult;
     if (run.t > state.stats.longestTrip) state.stats.longestTrip = run.t;
 
     sfxCash();
     ambientStop();
-    logMsg(wagering()
-      ? 'Home at ×' + run.mult.toFixed(2) + ' after ' + run.t.toFixed(1) + 's — banked ' +
-        fmt(value) + ' (' + (profit >= 0 ? '+' : '') + fmt(profit) + ')'
-      : 'Home after ' + run.t.toFixed(1) + 's with ' + fmt(value) + ' of catch.',
-      profit >= 0 ? 'good' : 'bad');
+    logMsg('Home after ' + run.t.toFixed(1) + 's with ' + fmt(value) + ' of catch.', 'good');
     floatMsg('+' + fmt(value), 'good');
-    setHint(wagering()
-      ? 'Tied up at the dock. ' + (profit >= 0
-          ? 'A good trip — ' + fmt(profit) + ' clear.'
-          : 'You called it early and took a loss of ' + fmt(-profit) + '.')
-      : 'Tied up at the dock. ' + fmt(value) + ' of catch sold on the quay.');
+    setHint('Tied up at the dock. ' + fmt(value) + ' of catch sold on the quay.');
 
     run = null;
     save();
@@ -2033,13 +1848,11 @@ input[type=range]::-moz-range-thumb {
     run.phase = 'sunk';
     run.phaseT = 0;
     var value = round2(aboard(run));
-    // Wagering insures the stake; the locker saves part of the catch.
-    var refund = round2(wagering() ? run.stake * run.cover : value * run.cover);
+    var refund = round2(value * run.cover);
     var lostValue = round2(value - refund);
 
     state.stats.sunk++;
-    state.stats.lost = round2(state.stats.lost +
-      (wagering() ? (run.stake + run.premium - refund) : lostValue));
+    state.stats.lost = round2(state.stats.lost + lostValue);
     if (run.t > state.stats.longestTrip) state.stats.longestTrip = run.t;
 
     run.refund = refund;
@@ -2049,15 +1862,11 @@ input[type=range]::-moz-range-thumb {
     ambientStop();
 
     logMsg('Lost at sea after ' + run.t.toFixed(1) + 's — ' + fmt(lostValue) + ' gone' +
-      (refund > 0 ? (wagering() ? '. Insurance returns ' : '. The locker saves ') + fmt(refund) + '.' : '.'),
-      'bad');
+      (refund > 0 ? '. The locker saves ' + fmt(refund) + '.' : '.'), 'bad');
     floatMsg('−' + fmt(lostValue), 'bad');
-    setHint(wagering()
-      ? 'She went down at ×' + run.mult.toFixed(2) + '. ' +
-        (refund > 0 ? 'The underwriter covers ' + fmt(refund) + '.' : 'Nothing was insured.')
-      : 'She went down with ' + fmt(value) + ' of catch aboard. ' +
-        (refund > 0 ? 'The sealed locker floats free with ' + fmt(refund) + '.'
-                    : 'Your bank is untouched — only the catch is gone.'));
+    setHint('She went down with ' + fmt(value) + ' of catch aboard. ' +
+      (refund > 0 ? 'The sealed locker floats free with ' + fmt(refund) + '.'
+                  : 'Your bank is untouched — only the catch is gone.'));
     dirty = true;
   }
 
@@ -2121,11 +1930,8 @@ input[type=range]::-moz-range-thumb {
       if (run.pingT <= 0) { sfxPing(risk20); run.pingT = pingInterval(risk20); }
       if (Math.random() < 1 - Math.exp(-h * dt)) { sink(); return; }
 
-      // beacon auto-recall — a multiplier when wagering, a catch value otherwise
-      if (run.target) {
-        var reached = wagering() ? run.mult >= run.target : aboard(run) >= run.target;
-        if (reached) { recall('beacon'); return; }
-      }
+      // beacon auto-recall at a target catch value
+      if (run.target && aboard(run) >= run.target) { recall('beacon'); return; }
       return;
     }
 
@@ -2181,24 +1987,14 @@ input[type=range]::-moz-range-thumb {
   function renderLive() {
     var working = run && (run.phase === 'working' || run.phase === 'returning');
     var t = run ? run.t : 0;
-    var mult = run ? run.mult : 1;
 
+    // No multiplier on show — that is betting vocabulary, and nothing here is
+    // wagered. Absolute catch, and what would survive a sinking.
+    var held = run ? aboard(run) : 0;
     el['r-time'].textContent = t.toFixed(1) + 's';
-
-    if (wagering()) {
-      var stake = run ? run.stake : currentStake();
-      el['r-mult'].textContent = '×' + mult.toFixed(2);
-      el['r-haul'].textContent = fmt(stake * (mult - 1));
-      el['r-value'].textContent = fmt(stake * mult);
-    } else {
-      // No multiplier on show — that is betting vocabulary, and there is
-      // no wager here. Absolute catch, and what survives a sinking.
-      var scale = run ? run.scale : catchScale(voyage(state.selected));
-      var held = run ? aboard(run) : 0;
-      el['r-mult'].textContent = String(provisions());
-      el['r-haul'].textContent = fmt(held);
-      el['r-value'].textContent = fmt(held * lockerShare());
-    }
+    el['r-mult'].textContent = String(provisions());
+    el['r-haul'].textContent = fmt(held);
+    el['r-value'].textContent = fmt(held * lockerShare());
 
     var risk20 = 0;
     if (run && run.phase === 'working') {
@@ -2247,17 +2043,7 @@ input[type=range]::-moz-range-thumb {
     var label, disabled = false, mode = '';
 
     if (!run) {
-      if (wagering()) {
-        var st = currentStake();
-        var total = st + round2(st * premiumRate());
-        label = blockReason ||
-          (st > 0 && total >= state.bank - 0.5
-            ? 'Set sail — everything you have'
-            : 'Set sail — ' + fmt(total));
-      } else {
-        label = blockReason || 'Set sail — ' + plural(provisions(), 'provision') + ' in hand';
-      }
-
+      label = blockReason || 'Set sail — ' + plural(provisions(), 'provision') + ' in hand';
       disabled = !!blockReason;
     } else if (run.phase === 'outbound') {
       label = 'Abort — full refund';
@@ -2612,8 +2398,7 @@ input[type=range]::-moz-range-thumb {
       dirty = false;
       el.bank.textContent = fmt(state.bank);
       renderVoyages();
-      renderInsurance();
-      renderStakeControls();
+      renderBeacon();
       renderCost();
       renderUpgrades();
       renderStats();
@@ -2642,7 +2427,6 @@ input[type=range]::-moz-range-thumb {
     sfxUpgrade();
     logMsg('Shipyard: ' + (typeof u.name === 'function' ? u.name() : u.name) +
       ' → ' + u.effect(lvl + 1) + ' (' + fmt(cost) + ')', 'info');
-    if (id === 'insurance' && lvl === 0) state.insureOn = true;
     save();
     dirty = true;
   }
@@ -2703,30 +2487,6 @@ input[type=range]::-moz-range-thumb {
       btn.addEventListener('click', function () { sfxClick(); toggleCollapse(btn.dataset.collapse); });
     });
 
-    el.stake.addEventListener('input', function () {
-      el['stake-slider'].value = String(currentStake());
-      renderCost();
-    });
-
-    el['stake-slider'].addEventListener('input', function () {
-      el.stake.value = el['stake-slider'].value;
-      renderCost();
-    });
-
-    document.querySelectorAll('[data-stake]').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var mode = btn.dataset.stake;
-        var cap = maxStake();
-        var v;
-        if (mode === 'min') v = MIN_STAKE;
-        else if (mode === 'max') v = cap;
-        else v = Math.floor(state.bank * parseFloat(mode));
-        el.stake.value = String(Math.max(0, Math.min(cap, v)));
-        el['stake-slider'].value = el.stake.value;
-        sfxClick();
-        renderCost();
-      });
-    });
 
     el['voyage-list'].addEventListener('click', function (e) {
       var charterBtn = e.target.closest('[data-charter]');
@@ -2753,18 +2513,9 @@ input[type=range]::-moz-range-thumb {
       if (btn) buyUpgrade(btn.dataset.buy);
     });
 
-    el['insurance-toggle'].addEventListener('change', function () {
-      state.insureOn = el['insurance-toggle'].checked;
-      var cap = maxStake();
-      if (currentStake() > cap) { el.stake.value = String(cap); }
-      save();
-      dirty = true;
-    });
-
     el['auto-recall'].addEventListener('change', function () {
       var v = parseFloat(el['auto-recall'].value);
-      var floor = wagering() ? 1 : 0;
-      state.autoRecall = isFinite(v) && v > floor ? v : null;
+      state.autoRecall = isFinite(v) && v > 0 ? v : null;
       if (state.autoRecall === null) el['auto-recall'].value = '';
       save();
     });
@@ -2803,34 +2554,9 @@ input[type=range]::-moz-range-thumb {
 
   /* ---------------- Boot ---------------- */
 
-  /* The markup ships the wager wording; push-your-luck relabels it once. */
-  function applyModeCopy() {
-    var storeTab = document.querySelector('.tab[data-tab="store"]');
-    if (storeTab) storeTab.textContent = wagering() ? 'Store' : 'Chandler';
-    if (wagering()) return;
-    var beaconNote = document.querySelector('#beacon-field .field-note');
-    if (beaconNote) beaconNote.textContent = 'at catch value';
-    var beaconUnit = document.querySelector('#beacon-field .currency');
-    if (beaconUnit) beaconUnit.textContent = '$';
-    var beaconInput = document.getElementById('auto-recall');
-    if (beaconInput) { beaconInput.min = '1'; beaconInput.step = '10'; }
-    document.querySelector('.brand-text em').textContent = 'push your luck';
-    var labels = document.querySelectorAll('.readout-label');
-    var names = ['Time at sea', 'Provisions', 'Catch aboard', 'Secured if lost'];
-    for (var i = 0; i < labels.length && i < names.length; i++) labels[i].textContent = names[i];
-    var stakeField = document.getElementById('stake-field');
-    if (stakeField) stakeField.hidden = true;
-    var wagerOnly = document.querySelectorAll('[data-wager-only]');
-    for (var j = 0; j < wagerOnly.length; j++) wagerOnly[j].hidden = true;
-    var pyl = document.querySelectorAll('[data-voyage-only]');
-    for (var k = 0; k < pyl.length; k++) pyl[k].hidden = false;
-    document.title = 'Harborlight — Push Your Luck';
-  }
-
   function boot() {
     cacheDom();
     state = load();
-    applyModeCopy();
     initCanvas();
     bind();
     applyCollapsed();
@@ -2840,9 +2566,7 @@ input[type=range]::-moz-range-thumb {
     setHint(state.stats.voyages
       ? 'Welcome back. ' + plural(state.stats.voyages, 'voyage') + ' sent, ' +
         state.stats.sunk + ' never came home.'
-      : (wagering()
-          ? 'Stake your funds and send the boat out. Every second at sea grows the haul — and the odds of losing it all.'
-          : 'Send her out and let the catch build. Every second aboard is worth more — and easier to lose.'));
+      : 'Send her out and let the catch build. Every second aboard is worth more — and easier to lose.');
     requestAnimationFrame(frame);
   }
 
@@ -2857,7 +2581,7 @@ input[type=range]::-moz-range-thumb {
 <header class="topbar">
   <div class="brand">
     <span class="brand-mark">&#9973;</span>
-    <span class="brand-text">Harborlight<em>a sailboat venture</em></span>
+    <span class="brand-text">Harborlight<em>push your luck</em></span>
   </div>
   <div class="topbar-right">
     <div class="bank">
@@ -2882,47 +2606,19 @@ input[type=range]::-moz-range-thumb {
     <span class="rail-label" aria-hidden="true">Charter a voyage</span>
 
     <div class="panel-body" id="launch-body">
-      <div class="field" id="stake-field">
-        <div class="field-head">
-          <label for="stake">Stake</label>
-        </div>
-        <div class="stake-row">
-          <span class="currency">$</span>
-          <input type="number" id="stake" min="10" step="10" value="100" inputmode="numeric">
-        </div>
-        <input type="range" id="stake-slider" min="0" max="1000" value="100" step="1" aria-label="Stake amount">
-        <div class="chip-row">
-          <button class="chip" data-stake="min">Min</button>
-          <button class="chip" data-stake="0.25">25%</button>
-          <button class="chip" data-stake="0.5">50%</button>
-          <button class="chip" data-stake="max">Max</button>
-        </div>
-      </div>
-
       <div class="field">
         <div class="field-head"><label>Purpose</label></div>
         <div id="voyage-list" class="voyage-list"></div>
       </div>
 
-      <div class="field" id="insurance-field" hidden>
-        <label class="toggle">
-          <input type="checkbox" id="insurance-toggle">
-          <span class="toggle-box"></span>
-          <span class="toggle-text">
-            <strong>Insure this voyage</strong>
-            <em id="insurance-terms">&mdash;</em>
-          </span>
-        </label>
-      </div>
-
       <div class="field" id="beacon-field" hidden>
         <div class="field-head">
           <label for="auto-recall">Beacon auto-recall</label>
-          <span class="field-note">at multiplier</span>
+          <span class="field-note">at catch value</span>
         </div>
         <div class="stake-row">
-          <span class="currency">&times;</span>
-          <input type="number" id="auto-recall" min="1.05" step="0.05" placeholder="off" inputmode="decimal">
+          <span class="currency">$</span>
+          <input type="number" id="auto-recall" min="1" step="10" placeholder="off" inputmode="decimal">
         </div>
       </div>
 
@@ -2945,15 +2641,15 @@ input[type=range]::-moz-range-thumb {
         <strong id="r-time">0.0s</strong>
       </div>
       <div class="readout">
-        <span class="readout-label">Multiplier</span>
-        <strong id="r-mult" class="gold">&times;1.00</strong>
+        <span class="readout-label">Provisions</span>
+        <strong id="r-mult" class="gold">0</strong>
       </div>
       <div class="readout">
-        <span class="readout-label">Haul aboard</span>
+        <span class="readout-label">Catch aboard</span>
         <strong id="r-haul" class="gold">$0</strong>
       </div>
       <div class="readout">
-        <span class="readout-label">Value if recalled</span>
+        <span class="readout-label">Secured if lost</span>
         <strong id="r-value">$0</strong>
       </div>
     </div>
@@ -2968,7 +2664,7 @@ input[type=range]::-moz-range-thumb {
     </div>
 
     <button class="primary action-btn" id="action-btn">Set sail</button>
-    <p class="stage-hint" id="stage-hint">Stake your funds and send the boat out. Every second at sea grows the haul &mdash; and the odds of losing it all.</p>
+    <p class="stage-hint" id="stage-hint">Send her out and let the catch build. Every second aboard is worth more &mdash; and easier to lose.</p>
   </section>
 
   <!-- ============ SIDE PANEL ============ -->
@@ -2984,7 +2680,7 @@ input[type=range]::-moz-range-thumb {
       <div class="tabs" role="tablist">
         <button class="tab is-active" data-tab="shipyard" role="tab">Shipyard</button>
         <button class="tab" data-tab="log" role="tab">Log</button>
-        <button class="tab" data-tab="store" role="tab">Store</button>
+        <button class="tab" data-tab="store" role="tab">Chandler</button>
         <button class="tab" data-tab="stats" role="tab">Records</button>
       </div>
 
@@ -3011,18 +2707,13 @@ input[type=range]::-moz-range-thumb {
 <details class="howto">
   <summary>How Harborlight works</summary>
   <div class="howto-body">
-    <p data-wager-only><strong>Stake and sail.</strong> Choose how much of your bank to put behind a voyage. The money leaves your account the moment the boat clears the dock.</p>
-    <p data-voyage-only hidden><strong>Provision and sail.</strong> A voyage costs one provision, bought from the chandler with money you have already earned. Your money is never staked and never goes down on a voyage &mdash; the boat earns, it does not bet.</p>
-    <p><strong>Time is the payout.</strong> The longer the boat works, the higher the multiplier on your stake. Growth compounds, so the last ten seconds are always worth more than the first ten.</p>
-    <p data-wager-only><strong>Time is also the risk.</strong> Every second carries a chance the boat goes down, and that chance <em>climbs</em> the longer you stay out. A sinking costs the stake and the entire haul.</p>
-    <p data-voyage-only hidden><strong>Time is also the risk.</strong> Every second carries a chance the boat goes down, and that chance <em>climbs</em> the longer you stay out. A sinking costs the catch she is carrying &mdash; nothing you had already banked.</p>
-    <p><strong>A full hold rides low.</strong> Danger scales with the haul as well as the clock, so the richer the boat gets, the more the sea wants it. That is why no set of upgrades ever makes a long trip safe &mdash; anything that grows the haul faster also puts it at risk sooner.</p>
-    <p><strong>Call it home.</strong> Recalling freezes the multiplier and banks the value. The sail home is safe &mdash; the decision is the whole game.</p>
-    <p data-wager-only><strong>Bet the house if you like.</strong> There is no cap on a stake beyond what you can actually pay. Staking everything is always allowed, and always exactly as dangerous as it sounds.</p>
-    <p data-wager-only><strong>Spend on the shipyard.</strong> Hulls and storm glasses cut risk, sonar speeds the haul, a larger hold blunts the extra danger a rich hold attracts, and an insurance policy refunds part of your stake when the worst happens &mdash; for a premium charged at launch.</p>
-    <p data-voyage-only hidden><strong>Spend on the shipyard.</strong> Hulls and storm glasses cut risk, sonar fills the hold faster, a larger hold blunts the extra danger a heavy catch attracts, and a salvage locker keeps part of the catch afloat when the worst happens.</p>
-    <p data-wager-only><strong>A stipend a day.</strong> The harbor pays out $100 once every twenty-four hours, waiting in the header whenever it is due. It is the only free money in the game, so losing the lot costs you real time.</p>
-    <p data-voyage-only hidden><strong>A stipend a day.</strong> The harbor pays out $100 once every twenty-four hours, waiting in the header whenever it is due. Run out of both provisions and funds and it is your way back.</p>
+    <p><strong>Provision and sail.</strong> A voyage costs one provision, bought from the chandler with money you have already earned. Your money is never staked and never goes down on a voyage &mdash; the boat earns, it does not bet.</p>
+    <p><strong>Time is the payout.</strong> The longer the boat works, the more the catch is worth. It compounds, so the last ten seconds aboard are always worth more than the first ten.</p>
+    <p><strong>Time is also the risk.</strong> Every second carries a chance the boat goes down, and that chance <em>climbs</em> the longer you stay out. A sinking costs the catch she is carrying &mdash; nothing you had already banked.</p>
+    <p><strong>A full hold rides low.</strong> Danger scales with the catch as well as the clock, so the richer the boat gets, the more the sea wants it. That is why no set of upgrades ever makes a long trip safe &mdash; anything that fills the hold faster also puts it at risk sooner.</p>
+    <p><strong>Call it home.</strong> Recalling stops the catch growing and banks what she has. The sail home is safe &mdash; the decision is the whole game.</p>
+    <p><strong>Spend on the shipyard.</strong> Hulls and storm glasses cut risk, sonar fills the hold faster, a larger hold blunts the extra danger a heavy catch attracts, and a salvage locker keeps part of the catch afloat when the worst happens.</p>
+    <p><strong>A stipend a day.</strong> The harbor pays out $100 once every twenty-four hours, waiting in the header whenever it is due. Run out of both provisions and funds and it is your way back.</p>
     <p><strong>Charter new purposes.</strong> Fishing is only the start. Trawling, salvage diving, and night cargo runs each rewrite the risk-and-reward curve.</p>
     <p><strong>Listen to her.</strong> A sonar ping marks the time she is working, and it quickens and rises as the odds turn against you &mdash; you can judge the danger with your eyes shut. The speaker button in the header silences everything.</p>
   </div>
