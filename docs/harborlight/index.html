@@ -1079,8 +1079,8 @@ input[type=range]::-moz-range-thumb {
       id: 'hold', name: 'Larger Hold', costs: [250, 1000, 4000],
       blurb: 'Room below decks and ballast to match, so a heavy catch rides higher in the water. Blunts the extra risk a rich hold attracts — the one danger no other upgrade touches.',
 
-      effect: function (l) { return l ? 'Weight penalty −' + Math.round(l * 12) + '%' : null; },
-      next: function (l) { return 'Weight penalty −' + Math.round((l + 1) * 12) + '% total'; }
+      effect: function (l) { return 'Carries ' + fmtLb(HOLD_LB / HOLD_WEIGHT[l]); },
+      next: function (l) { return 'Carries ' + fmtLb(HOLD_LB / HOLD_WEIGHT[l + 1]); }
     },
     {
       id: 'insurance', name: 'Salvage Locker', costs: [750, 3000, 12000],
@@ -1246,6 +1246,27 @@ input[type=range]::-moz-range-thumb {
 
   function catchScale(v) { return CATCH[v.id] || CATCH.fishing; }
   function fmtLb(v) { return Math.round(v).toLocaleString('en-US') + ' lb'; }
+
+  /* Larger Hold reads as a capacity upgrade because that is exactly what it
+     is: the hazard's weight term, BASE.weight * weightFactor * catchFrac,
+     is the same thing as BASE.weight * (pounds aboard / capacity). Raising
+     capacity is how carrying the same catch stops riding you down. */
+  function capacityLb() { return HOLD_LB / weightFactor(); }
+
+  /* How long she can work these grounds before the danger crosses into
+     "Dangerous". Stepped rather than solved — the weight coupling makes the
+     hazard depend on the catch, which depends on time. Moves with every
+     upgrade, including sonar, which fills the hold faster and so gets there
+     sooner. */
+  function safeWindow(v) {
+    var g = growthRate(v);
+    var probe = { type: v.id, mult: 1, catchMul: 1, mods: [] };
+    for (var t = 0; t <= 300; t += 0.5) {
+      probe.mult = Math.exp(g * t);
+      if (1 - Math.exp(-hazardAt(probe, t) * 20) >= 0.38) return t;
+    }
+    return null;
+  }
   function lockerShare() { return LOCKER[state.upgrades.insurance]; }
 
   /* What fraction of a full hold she is carrying. Growth raises it; events
@@ -1400,9 +1421,14 @@ input[type=range]::-moz-range-thumb {
     }
 
     var n = provisions();
+    var win = safeWindow(v);
     var lines = [
       'A full hold on these grounds is worth about <b>' + fmt(catchScale(v)) + '</b>.',
-      'At this rate the catch doubles in about <b>' + Math.round(Math.LN2 / growthRate(v)) + 's</b>.'
+      'She carries <b>' + fmtLb(capacityLb()) + '</b> before she is riding low.',
+      'At this rate the catch doubles in about <b>' + Math.round(Math.LN2 / growthRate(v)) + 's</b>.',
+      win === null
+        ? 'These grounds stay gentle for as long as you care to work them.'
+        : 'About <b>' + Math.round(win) + 's</b> of working before the danger turns.'
     ];
     if (lockerShare() > 0) {
       lines.push('The locker saves <b>' + pct(lockerShare()) + '</b> of the catch if she goes down.');
@@ -2078,7 +2104,8 @@ input[type=range]::-moz-range-thumb {
     el['r-time'].textContent = t.toFixed(1) + 's';
     el['r-mult'].textContent = String(provisions());
     el['r-haul'].textContent = fmt(held);
-    el['r-weight'].textContent = fmtLb(HOLD_LB * frac);
+    el['r-weight'].textContent = Math.round(HOLD_LB * frac).toLocaleString('en-US') +
+      ' / ' + fmtLb(capacityLb());
     el['r-value'].textContent = fmt(held * lockerShare());
     el['r-locker'].textContent = lockerShare() > 0
       ? pct(lockerShare()) + ' in the locker'
