@@ -574,6 +574,23 @@ input[type=range]::-moz-range-thumb {
 
 .readout .gold { color: var(--gold); }
 
+/* The weight under the catch — present, but never competing with the value. */
+.readout-sub {
+  display: block;
+  margin-top: 1px;
+  /* Reserved on every tile, with the line box pinned so an empty sub is
+     exactly as tall as a filled one and the rows stay level. */
+  min-height: 15px;
+  line-height: 15px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .risk { }
 
 .risk-head {
@@ -622,7 +639,20 @@ input[type=range]::-moz-range-thumb {
 
 .risk-note { margin-top: 6px; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
 
-.stage-hint { margin: 0; font-size: 12px; color: var(--muted); text-align: center; min-height: 36px; }
+.stage-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+  min-height: 36px;
+  transition: color .25s ease;
+}
+
+/* The hint carries the tone of whatever it is reporting. */
+.stage-hint.good { color: var(--good); }
+.stage-hint.bad  { color: var(--danger); }
+.stage-hint.gold { color: var(--gold); }
+.stage-hint.info { color: var(--accent); }
 
 /* ---------------- Tabs / side ---------------- */
 
@@ -984,6 +1014,12 @@ input[type=range]::-moz-range-thumb {
   // Salvage Locker: the share of the catch that survives a sinking.
   var LOCKER = [0, 0.20, 0.35, 0.50];
 
+  /* What a full hold weighs. The hazard already scales with how full she is;
+     this puts a number on it, so "riding low" is something you can watch
+     rather than infer. Deliberately the same on every ground — a full hold is
+     a full hold, whatever it happens to be worth. */
+  var HOLD_LB = 1200;
+
   var OUTBOUND_MS = 1300;
   var RETURN_MS   = 1700;
   var SINK_MS     = 2400;
@@ -1209,6 +1245,7 @@ input[type=range]::-moz-range-thumb {
   function hasInstruments() { return state.upgrades.glass > 0; }
 
   function catchScale(v) { return CATCH[v.id] || CATCH.fishing; }
+  function fmtLb(v) { return Math.round(v).toLocaleString('en-US') + ' lb'; }
   function lockerShare() { return LOCKER[state.upgrades.insurance]; }
 
   /* What fraction of a full hold she is carrying. Growth raises it; events
@@ -1260,16 +1297,22 @@ input[type=range]::-moz-range-thumb {
     ['bank', 'status-pill', 'voyage-list',
      'beacon-field', 'auto-recall',
      'cost-summary', 'daily-btn', 'daily-note', 'sea', 'sea-overlay', 'grid', 'store-list',
-     'r-time', 'r-mult', 'r-haul', 'r-value', 'risk-fill', 'risk-label', 'risk-note',
+     'r-time', 'r-mult', 'r-haul', 'r-weight', 'r-value', 'r-locker',
+     'risk-fill', 'risk-label', 'risk-note',
      'action-btn', 'stage-hint', 'upgrade-list', 'log', 'stats', 'reset-btn', 'sound-btn'
     ].forEach(function (id) { el[id] = $(id); });
   }
 
   /* ---------------- Log ---------------- */
 
+  /* Anything worth logging is also the most useful thing to say under the
+     action button, so the hint line mirrors the newest entry — the float over
+     the boat stays short, and the reason for it reads underneath. Phase
+     narration still writes there directly; whichever happened last wins. */
   function logMsg(text, tone) {
     state.log.push({ v: state.stats.voyages, t: text, c: tone || '' });
     if (state.log.length > 60) state.log.shift();
+    setHint(text, tone);
     renderLog();
   }
 
@@ -1289,7 +1332,7 @@ input[type=range]::-moz-range-thumb {
     var d = document.createElement('div');
     d.className = 'float-msg ' + (tone || 'info');
     d.textContent = text;
-    d.style.left = Math.round(scene.boatX) + 'px';
+    d.style.left = Math.round(Math.max(50, Math.min((scene.w || 0) - 50, scene.boatX))) + 'px';
     d.style.top = Math.round(scene.boatY - 34) + 'px';
     el['sea-overlay'].appendChild(d);
     setTimeout(function () { if (d.parentNode) d.parentNode.removeChild(d); }, 2000);
@@ -2031,10 +2074,15 @@ input[type=range]::-moz-range-thumb {
     // No multiplier on show — that is betting vocabulary, and nothing here is
     // wagered. Absolute catch, and what would survive a sinking.
     var held = run ? aboard(run) : 0;
+    var frac = run ? catchFrac(run) : 0;
     el['r-time'].textContent = t.toFixed(1) + 's';
     el['r-mult'].textContent = String(provisions());
     el['r-haul'].textContent = fmt(held);
+    el['r-weight'].textContent = fmtLb(HOLD_LB * frac);
     el['r-value'].textContent = fmt(held * lockerShare());
+    el['r-locker'].textContent = lockerShare() > 0
+      ? pct(lockerShare()) + ' in the locker'
+      : 'no locker fitted';
 
     var risk20 = 0;
     if (run && run.phase === 'working') {
@@ -2119,13 +2167,17 @@ input[type=range]::-moz-range-thumb {
       if (label !== run.lastRiskLabel && (label === 'Dangerous' || label === 'Extreme')) {
         run.lastRiskLabel = label;
         sfxWarn();
-        logMsg('Danger is ' + label.toLowerCase() + ' at ' + run.t.toFixed(0) + 's (×' + run.mult.toFixed(2) + ')',
-          label === 'Extreme' ? 'bad' : 'gold');
+        logMsg('Danger is ' + label.toLowerCase() + ' — ' + fmtLb(HOLD_LB * catchFrac(run)) +
+          ' aboard, worth ' + fmt(aboard(run)), label === 'Extreme' ? 'bad' : 'gold');
       }
     }
   }
 
-  function setHint(text) { el['stage-hint'].textContent = text; }
+  function setHint(text, tone) {
+    var h = el['stage-hint'];
+    h.textContent = text;
+    h.className = 'stage-hint' + (tone ? ' ' + tone : '');
+  }
 
   function renderDaily() {
     var ready = dailyReady();
@@ -2687,18 +2739,22 @@ input[type=range]::-moz-range-thumb {
       <div class="readout">
         <span class="readout-label">Time at sea</span>
         <strong id="r-time">0.0s</strong>
+        <span class="readout-sub"></span>
       </div>
       <div class="readout">
         <span class="readout-label">Provisions</span>
         <strong id="r-mult" class="gold">0</strong>
+        <span class="readout-sub"></span>
       </div>
       <div class="readout">
         <span class="readout-label">Catch aboard</span>
         <strong id="r-haul" class="gold">$0</strong>
+        <span class="readout-sub" id="r-weight">0 lb</span>
       </div>
       <div class="readout">
         <span class="readout-label">Secured if lost</span>
         <strong id="r-value">$0</strong>
+        <span class="readout-sub" id="r-locker"></span>
       </div>
     </div>
 
@@ -2755,14 +2811,14 @@ input[type=range]::-moz-range-thumb {
 <details class="howto">
   <summary>How Harborlight works</summary>
   <div class="howto-body">
-    <p><strong>Provision and sail.</strong> A voyage costs one provision, bought from the chandler with money you have already earned. Your money is never staked and never goes down on a voyage &mdash; the boat earns, it does not bet.</p>
+    <p><strong>Provision and sail.</strong> A voyage costs one provision from the chandler. Pick a ground, send her out, and the catch starts building the moment she reaches it.</p>
     <p><strong>Time is the payout.</strong> The longer the boat works, the more the catch is worth. It compounds, so the last ten seconds aboard are always worth more than the first ten.</p>
-    <p><strong>Time is also the risk.</strong> Every second carries a chance the boat goes down, and that chance <em>climbs</em> the longer you stay out. A sinking costs the catch she is carrying &mdash; nothing you had already banked.</p>
-    <p><strong>A full hold rides low.</strong> Danger scales with the catch as well as the clock, so the richer the boat gets, the more the sea wants it. That is why no set of upgrades ever makes a long trip safe &mdash; anything that fills the hold faster also puts it at risk sooner.</p>
+    <p><strong>Time is also the risk.</strong> Every second carries a chance she goes down, and that chance <em>climbs</em> the longer she stays out. What is in the hold is what you stand to lose.</p>
+    <p><strong>A full hold rides low.</strong> Watch the weight climb beside the catch: danger scales with what she is carrying as well as with the clock. That is why no set of upgrades ever makes a long trip safe &mdash; anything that fills the hold faster also puts it at risk sooner.</p>
     <p><strong>Call it home.</strong> Recalling stops the catch growing and banks what she has. The sail home is safe &mdash; the decision is the whole game.</p>
     <p><strong>Spend on the shipyard.</strong> Hulls and storm glasses cut risk, sonar fills the hold faster, a larger hold blunts the extra danger a heavy catch attracts, and a salvage locker keeps part of the catch afloat when the worst happens.</p>
     <p><strong>A stipend a day.</strong> The harbor pays out $100 once every twenty-four hours, waiting in the header whenever it is due. Run out of both provisions and funds and it is your way back.</p>
-    <p><strong>Charter new purposes.</strong> Fishing is only the start. Trawling, salvage diving, and night cargo runs each rewrite the risk-and-reward curve.</p>
+    <p><strong>Charter new grounds.</strong> Fishing is only the start. Trawling, salvage diving, and night cargo runs each rewrite the risk-and-reward curve &mdash; and a full hold is worth far more out there.</p>
     <p><strong>Listen to her.</strong> A sonar ping marks the time she is working, and it quickens and rises as the odds turn against you &mdash; you can judge the danger with your eyes shut. The speaker button in the header silences everything.</p>
   </div>
 </details>
