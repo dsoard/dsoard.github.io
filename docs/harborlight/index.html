@@ -1406,19 +1406,12 @@ input[type=range]::-moz-range-thumb {
 
 
 
-  /* The panel explains the ground she is working and what a provision buys. */
+  /* A reference card for the ground she is working and the boat working it.
+     It reads the same whether she is at the dock or at sea — the figures are
+     never more useful than while you are deciding whether to call her back. */
   function renderCost() {
-    var v = voyage(state.selected);
+    var v = voyage(run ? run.type : state.selected);
     blockReason = null;
-
-    if (run) {
-      el['cost-summary'].innerHTML =
-        '<b>' + v.name + '</b> is on the grounds. Nothing of yours is at risk — ' +
-        'only the catch she is carrying.' +
-        (run.target ? '<br>Beacon set to bring her home at ' + fmt(run.target) + '.' : '');
-      el['daily-note'].hidden = true;
-      return;
-    }
 
     var n = provisions();
     var win = safeWindow(v);
@@ -1433,15 +1426,19 @@ input[type=range]::-moz-range-thumb {
     if (lockerShare() > 0) {
       lines.push('The locker saves <b>' + pct(lockerShare()) + '</b> of the catch if she goes down.');
     }
-    if (n <= 0) {
+    if (run && run.target) {
+      lines.push('Beacon set to bring her home at <b>' + fmt(run.target) + '</b>.');
+    }
+    if (!run && n <= 0) {
       blockReason = state.bank >= PROV_PACKS[0].cost
         ? 'Out of provisions — buy more'
         : 'Out of provisions and funds';
     }
 
     el['cost-summary'].innerHTML = lines.join('<br>');
-    el['daily-note'].hidden = n > 0;
-    if (n <= 0) {
+    // No point nagging about provisions while she is still out.
+    el['daily-note'].hidden = !!run || n > 0;
+    if (!run && n <= 0) {
       el['daily-note'].textContent = state.bank >= PROV_PACKS[0].cost
         ? 'Buy provisions from the chandler — see the Chandler tab.'
         : 'No provisions and nothing to buy them with. The daily stipend is your way back.';
