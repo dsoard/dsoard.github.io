@@ -567,6 +567,12 @@ input[type=range]::-moz-range-thumb {
   text-overflow: ellipsis;
 }
 
+/* Past the load line the number stops being a status and becomes a warning. */
+.readout-sub.is-over {
+  color: var(--danger);
+  font-weight: 800;
+}
+
 .readout strong {
   font-size: 17px;
   font-variant-numeric: tabular-nums;
@@ -989,7 +995,7 @@ input[type=range]::-moz-range-thumb {
      Night cargo runs peak highest and survive least.
      ------------------------------------------------------ */
 
-  var BASE = { growth: 0.0130, hazard: 0.0050, ramp: 0.00018, weight: 0.30 };
+  var BASE = { growth: 0.0130, hazard: 0.0050, ramp: 0.00018, weight: 0.30, overload: 0.30 };
 
   var SAVE_KEY   = 'harborlight.voyage.v1';
   var START_BANK = 150;
@@ -1014,10 +1020,10 @@ input[type=range]::-moz-range-thumb {
   // Salvage Locker: the share of the catch that survives a sinking.
   var LOCKER = [0, 0.20, 0.35, 0.50];
 
-  /* What a full hold weighs. The hazard already scales with how full she is;
-     this puts a number on it, so "riding low" is something you can watch
-     rather than infer. Deliberately the same on every ground — a full hold is
-     a full hold, whatever it happens to be worth. */
+  /* Her load line — the weight she is built to carry. You can load past it,
+     the way a real boat can; she just sits low and the sea starts winning.
+     Deliberately the same on every ground: a full hold is a full hold,
+     whatever it happens to be worth. */
   var HOLD_LB = 1200;
 
   var OUTBOUND_MS = 1300;
@@ -1077,10 +1083,10 @@ input[type=range]::-moz-range-thumb {
     },
     {
       id: 'hold', name: 'Larger Hold', costs: [250, 1000, 4000],
-      blurb: 'Room below decks and ballast to match, so a heavy catch rides higher in the water. Blunts the extra risk a rich hold attracts — the one danger no other upgrade touches.',
+      blurb: 'Room below decks and ballast to match, so a heavy catch rides higher in the water. Raises the load line, which is the only thing that makes a big haul safe to carry.',
 
-      effect: function (l) { return 'Carries ' + fmtLb(HOLD_LB / HOLD_WEIGHT[l]); },
-      next: function (l) { return 'Carries ' + fmtLb(HOLD_LB / HOLD_WEIGHT[l + 1]); }
+      effect: function (l) { return 'Load line ' + fmtLb(HOLD_LB / HOLD_WEIGHT[l]); },
+      next: function (l) { return 'Load line ' + fmtLb(HOLD_LB / HOLD_WEIGHT[l + 1]); }
     },
     {
       id: 'insurance', name: 'Salvage Locker', costs: [750, 3000, 12000],
@@ -1224,8 +1230,15 @@ input[type=range]::-moz-range-thumb {
   function hazardAt(r, t) {
     var v = voyage(r.type);
     // Time at sea raises the base risk; a heavy hold raises it again.
+    /* Weight tells twice. Up to the load line it is a steady drag; past it
+       the penalty turns on itself, so an overloaded boat gets dangerous far
+       faster than a merely full one. Without that second term the line was a
+       number you could sail straight past without consequence. */
+    var load = catchFrac(r);
+    var over = Math.max(0, load - 1);
+    var wf = weightFactor();
     var h = (hazardBase(v) + hazardRamp(v) * t) *
-            (1 + BASE.weight * weightFactor() * catchFrac(r));
+            (1 + BASE.weight * wf * load + BASE.overload * wf * over * over);
     return h * modFactor(r, 'hazard');
   }
 
@@ -1247,11 +1260,11 @@ input[type=range]::-moz-range-thumb {
   function catchScale(v) { return CATCH[v.id] || CATCH.fishing; }
   function fmtLb(v) { return Math.round(v).toLocaleString('en-US') + ' lb'; }
 
-  /* Larger Hold reads as a capacity upgrade because that is exactly what it
-     is: the hazard's weight term, BASE.weight * weightFactor * catchFrac,
-     is the same thing as BASE.weight * (pounds aboard / capacity). Raising
-     capacity is how carrying the same catch stops riding you down. */
-  function capacityLb() { return HOLD_LB / weightFactor(); }
+  /* Larger Hold reads as a load-line upgrade because that is exactly what it
+     is: the hazard's weight term, BASE.weight * weightFactor * catchFrac, is
+     the same thing as BASE.weight * (pounds aboard / load line). Raising the
+     line is how carrying the same catch stops riding you down. */
+  function loadLineLb() { return HOLD_LB / weightFactor(); }
 
   /* How long she can work these grounds before the danger crosses into
      "Dangerous". Stepped rather than solved — the weight coupling makes the
@@ -1417,7 +1430,7 @@ input[type=range]::-moz-range-thumb {
     var win = safeWindow(v);
     var lines = [
       'A full hold on these grounds is worth about <b>' + fmt(catchScale(v)) + '</b>.',
-      'She carries <b>' + fmtLb(capacityLb()) + '</b> before she is riding low.',
+      'Her load line is <b>' + fmtLb(loadLineLb()) + '</b>; past that she is overloaded.',
       'At this rate the catch doubles in about <b>' + Math.round(Math.LN2 / growthRate(v)) + 's</b>.',
       win === null
         ? 'These grounds stay gentle for as long as you care to work them.'
@@ -2101,8 +2114,13 @@ input[type=range]::-moz-range-thumb {
     el['r-time'].textContent = t.toFixed(1) + 's';
     el['r-mult'].textContent = String(provisions());
     el['r-haul'].textContent = fmt(held);
-    el['r-weight'].textContent = Math.round(HOLD_LB * frac).toLocaleString('en-US') +
-      ' / ' + fmtLb(capacityLb());
+    var lb = HOLD_LB * frac;
+    var line = loadLineLb();
+    var overBy = lb - line;
+    el['r-weight'].textContent = overBy > 0
+      ? 'overloaded by ' + fmtLb(overBy)
+      : Math.round(lb).toLocaleString('en-US') + ' / ' + fmtLb(line);
+    el['r-weight'].classList.toggle('is-over', overBy > 0);
     el['r-value'].textContent = fmt(held * lockerShare());
     el['r-locker'].textContent = lockerShare() > 0
       ? pct(lockerShare()) + ' in the locker'
@@ -2191,8 +2209,10 @@ input[type=range]::-moz-range-thumb {
       if (label !== run.lastRiskLabel && (label === 'Dangerous' || label === 'Extreme')) {
         run.lastRiskLabel = label;
         sfxWarn();
-        logMsg('Danger is ' + label.toLowerCase() + ' — ' + fmtLb(HOLD_LB * catchFrac(run)) +
-          ' aboard, worth ' + fmt(aboard(run)), label === 'Extreme' ? 'bad' : 'gold');
+        var lbNow = HOLD_LB * catchFrac(run);
+        logMsg('Danger is ' + label.toLowerCase() + ' — ' + fmtLb(lbNow) +
+          (lbNow > loadLineLb() ? ' aboard and overloaded' : ' aboard') +
+          ', worth ' + fmt(aboard(run)), label === 'Extreme' ? 'bad' : 'gold');
       }
     }
   }
@@ -2838,7 +2858,7 @@ input[type=range]::-moz-range-thumb {
     <p><strong>Provision and sail.</strong> A voyage costs one provision from the chandler. Pick a ground, send her out, and the catch starts building the moment she reaches it.</p>
     <p><strong>Time is the payout.</strong> The longer the boat works, the more the catch is worth. It compounds, so the last ten seconds aboard are always worth more than the first ten.</p>
     <p><strong>Time is also the risk.</strong> Every second carries a chance she goes down, and that chance <em>climbs</em> the longer she stays out. What is in the hold is what you stand to lose.</p>
-    <p><strong>A full hold rides low.</strong> Watch the weight climb beside the catch: danger scales with what she is carrying as well as with the clock. That is why no set of upgrades ever makes a long trip safe &mdash; anything that fills the hold faster also puts it at risk sooner.</p>
+    <p><strong>Mind the load line.</strong> Watch the weight climb beside the catch. Danger scales with what she is carrying as well as with the clock, and past her load line it climbs sharply &mdash; an overloaded boat is in far more trouble than a merely full one. A larger hold raises the line; nothing else does.</p>
     <p><strong>Call it home.</strong> Recalling stops the catch growing and banks what she has. The sail home is safe &mdash; the decision is the whole game.</p>
     <p><strong>Spend on the shipyard.</strong> Hulls and storm glasses cut risk, sonar fills the hold faster, a larger hold blunts the extra danger a heavy catch attracts, and a salvage locker keeps part of the catch afloat when the worst happens.</p>
     <p><strong>A stipend a day.</strong> The harbor pays out $100 once every twenty-four hours, waiting in the header whenever it is due. Run out of both provisions and funds and it is your way back.</p>
