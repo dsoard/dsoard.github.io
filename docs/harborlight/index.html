@@ -645,6 +645,86 @@ input[type=range]::-moz-range-thumb {
 
 .risk-note { margin-top: 6px; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
 
+/* ---------- The crew ----------
+   Three calls a voyage, so the row has to read as a spend: the counter goes
+   quiet when it is empty and the cooldown wipes across each button in place
+   rather than greying the row out and back. */
+.crew { display: grid; gap: 6px; }
+
+.crew-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+#crew-calls { color: var(--accent); transition: color .25s ease; }
+#crew-calls.is-spent { color: var(--muted); }
+
+.crew-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.crew-btn {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  gap: 1px;
+  padding: 7px 8px 8px;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color .18s ease, background .18s ease, transform .1s ease;
+}
+
+.crew-btn:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-soft); }
+.crew-btn:active:not(:disabled) { transform: translateY(1px); }
+.crew-btn:disabled { cursor: default; opacity: .55; }
+
+.crew-key {
+  position: absolute;
+  top: 6px;
+  right: 7px;
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--muted);
+}
+
+.crew-btn { min-height: 58px; align-content: center; }
+.crew-name { font-size: 12px; font-weight: 600; line-height: 1.25; padding-right: 12px; }
+.crew-eff {
+  font-size: 9.5px;
+  color: var(--muted);
+  line-height: 1.3;
+  letter-spacing: -.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The wipe sits over the button and drains left as the call comes back. */
+.crew-cool {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0%;
+  background: rgba(6, 10, 15, .62);
+  pointer-events: none;
+  transition: width .1s linear;
+}
+
+@media (max-width: 560px) {
+  .crew-eff { display: none; }
+  .crew-btn { padding: 9px 8px; }
+}
+
 .stage-hint {
   margin: 0;
   font-size: 12px;
@@ -958,8 +1038,171 @@ input[type=range]::-moz-range-thumb {
   .bank strong { font-size: 19px; }
   .topbar { padding: 12px 16px; }
 }
-
 </style>
+
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">&#9973;</span>
+    <span class="brand-text">Harborlight<em>a sailboat venture</em></span>
+  </div>
+  <div class="topbar-right">
+    <div class="bank">
+      <span class="bank-label">Bank</span>
+      <strong id="bank">$0</strong>
+    </div>
+    <button class="daily-btn" id="daily-btn" hidden>+ $100 daily</button>
+    <button class="sound-btn" id="sound-btn" aria-pressed="true" aria-label="Mute sound">&#128266;</button>
+    <div class="status-pill" id="status-pill" data-phase="idle">At dock</div>
+  </div>
+</header>
+
+<main class="grid" id="grid">
+
+  <!-- ============ LAUNCH PANEL ============ -->
+  <section class="panel collapsible" id="panel-launch">
+    <div class="panel-head">
+      <h2 class="panel-title">Charter a voyage</h2>
+      <button class="collapse-btn" data-collapse="launch" aria-expanded="true"
+              aria-controls="launch-body" aria-label="Collapse the charter panel"></button>
+    </div>
+    <span class="rail-label" aria-hidden="true">Charter a voyage</span>
+
+    <div class="panel-body" id="launch-body">
+      <div class="field">
+        <div class="field-head"><label>Purpose</label></div>
+        <div id="voyage-list" class="voyage-list"></div>
+      </div>
+
+      <div class="field" id="beacon-field" hidden>
+        <div class="field-head">
+          <label for="auto-recall">Beacon auto-recall</label>
+          <span class="field-note">at catch value</span>
+        </div>
+        <div class="stake-row">
+          <span class="currency">$</span>
+          <input type="number" id="auto-recall" min="1" step="10" placeholder="off" inputmode="decimal">
+        </div>
+      </div>
+
+      <div class="cost-summary" id="cost-summary"></div>
+
+      <p class="daily-note" id="daily-note" hidden></p>
+    </div>
+  </section>
+
+  <!-- ============ STAGE ============ -->
+  <section class="panel stage" id="panel-stage">
+    <div class="sea-wrap">
+      <canvas id="sea"></canvas>
+      <div class="sea-overlay" id="sea-overlay"></div>
+    </div>
+
+    <div class="readouts">
+      <div class="readout">
+        <span class="readout-label">Time at sea</span>
+        <strong id="r-time">0.0s</strong>
+        <span class="readout-sub"></span>
+      </div>
+      <div class="readout">
+        <span class="readout-label">Provisions</span>
+        <strong id="r-mult" class="gold">0</strong>
+        <span class="readout-sub"></span>
+      </div>
+      <div class="readout">
+        <span class="readout-label">Catch aboard</span>
+        <strong id="r-haul" class="gold">$0</strong>
+        <span class="readout-sub" id="r-weight">0 lb</span>
+      </div>
+      <div class="readout">
+        <span class="readout-label">Secured if lost</span>
+        <strong id="r-value">$0</strong>
+        <span class="readout-sub" id="r-locker"></span>
+      </div>
+    </div>
+
+    <div class="risk">
+      <div class="risk-head">
+        <span>Danger</span>
+        <span id="risk-label">Calm</span>
+      </div>
+      <div class="risk-track"><div class="risk-fill" id="risk-fill"></div></div>
+      <div class="risk-note" id="risk-note">No instruments aboard &mdash; fit a Storm Glass to read exact odds.</div>
+    </div>
+
+    <div class="crew" id="crew" hidden>
+      <div class="crew-head">
+        <span>Crew</span>
+        <span id="crew-calls">3 calls left</span>
+      </div>
+      <div class="crew-row" id="crew-row"></div>
+    </div>
+
+    <button class="primary action-btn" id="action-btn">Set sail</button>
+    <p class="stage-hint" id="stage-hint">Send her out and let the catch build. Every second aboard is worth more &mdash; and easier to lose.</p>
+  </section>
+
+  <!-- ============ SIDE PANEL ============ -->
+  <section class="panel collapsible" id="panel-side">
+    <div class="panel-head">
+      <h2 class="panel-title">Harbor office</h2>
+      <button class="collapse-btn" data-collapse="side" aria-expanded="true"
+              aria-controls="side-body" aria-label="Collapse the harbor office panel"></button>
+    </div>
+    <span class="rail-label" aria-hidden="true">Harbor office</span>
+
+    <div class="panel-body" id="side-body">
+      <div class="tabs" role="tablist">
+        <button class="tab is-active" data-tab="shipyard" role="tab">Shipyard</button>
+        <button class="tab" data-tab="log" role="tab">Log</button>
+        <button class="tab" data-tab="store" role="tab">Chandler</button>
+        <button class="tab" data-tab="stats" role="tab">Records</button>
+      </div>
+
+      <div class="tab-body is-active" data-panel="shipyard">
+        <div id="upgrade-list" class="upgrade-list"></div>
+      </div>
+
+      <div class="tab-body" data-panel="log">
+        <ul id="log" class="log"></ul>
+      </div>
+
+      <div class="tab-body" data-panel="store">
+        <div id="store-list" class="store-list"></div>
+      </div>
+
+      <div class="tab-body" data-panel="stats">
+        <dl id="stats" class="stats"></dl>
+        <button class="ghost small" id="reset-btn">Scuttle the fleet (reset save)</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<details class="howto">
+  <summary>How Harborlight works</summary>
+  <div class="howto-body">
+    <p><strong>Provision and sail.</strong> A voyage costs one provision from the chandler. Pick a ground, send her out, and the catch starts building the moment she reaches it.</p>
+    <p><strong>Time is the payout.</strong> The longer the boat works, the more the catch is worth. It compounds, so the last ten seconds aboard are always worth more than the first ten.</p>
+    <p><strong>Time is also the risk.</strong> Every second carries a chance she goes down, and that chance <em>climbs</em> the longer she stays out. What is in the hold is what you stand to lose.</p>
+    <p><strong>Mind the load line.</strong> Watch the weight climb beside the catch. Danger scales with what she is carrying as well as with the clock, and crossing her load line raises the stakes on the spot: the danger jumps, then climbs away from you, seas start coming over the rail and washing catch off the deck, and the salvage locker stops working &mdash; a boat riding that low cannot float anything free, so the deeper she sits the less of the catch is secured, and at double her line none of it is. A larger hold raises the line; nothing else does.</p>
+    <p><strong>Call the crew.</strong> You get three calls a voyage, five seconds apart, and they are the only things you steer once she is on the grounds. <em>Work her hard</em> fills the hold faster and makes her ride worse. <em>Heave to</em> all but stops the catch and all but stops the danger &mdash; the answer to a squall. <em>Trim the hold</em> puts a quarter of the catch over the side to buy the load line back. Keys 1, 2 and 3. Spending them beats hoarding them; spending them at the right moment beats spending them early.</p>
+    <p><strong>Call it home.</strong> Recalling stops the catch growing and banks what she has. The sail home is safe &mdash; the decision is the whole game.</p>
+    <p><strong>Spend on the shipyard.</strong> Hulls and storm glasses cut risk, sonar fills the hold faster, a larger hold blunts the extra danger a heavy catch attracts, and a salvage locker keeps part of the catch afloat when the worst happens.</p>
+    <p><strong>A stipend a day.</strong> The harbor pays out $100 once every twenty-four hours, waiting in the header whenever it is due. Run out of both provisions and funds and it is your way back.</p>
+    <p><strong>Charter new grounds.</strong> Fishing is only the start. Trawling, salvage diving, and night cargo runs each rewrite the risk-and-reward curve &mdash; and a full hold is worth far more out there.</p>
+    <p><strong>Listen to her.</strong> A sonar ping marks the time she is working, and it quickens and rises as the odds turn against you &mdash; you can judge the danger with your eyes shut. The speaker button in the header silences everything.</p>
+  </div>
+</details>
+
+<footer class="site-footer">
+  <a href="../personal/">&larr; Back to davidsoard.com</a>
+  <span class="copyright">&copy; 2026 David Soard. All rights reserved.</span>
+  <span>Progress saves to this browser.</span>
+</footer>
+
 <script>
 /* =========================================================
    HARBORLIGHT — a sailboat venture
@@ -981,21 +1224,37 @@ input[type=range]::-moz-range-thumb {
      Balance constants
      ------------------------------------------------------
      The catch grows as scale * (exp(growth * t) - 1), scaled by
-     events. The per-second hazard rate is
-     (hazard + ramp * t) * (1 + weight * catch),
-     so danger accelerates on two fronts: time at sea, and how
-     heavy the hold is riding. That second term is what keeps
-     the game honest — every upgrade that grows the haul faster
-     also pays for itself in risk, so no loadout ever turns the
-     sea into a sure thing.
+     events. Everything weight-driven is measured as a multiple
+     of her load line, ratio = pounds aboard / load line, and
+     the per-second hazard rate is
+     (hazard + ramp * t) * (1 + weight * ratio + overload(over)),
+     so danger accelerates on three fronts: time at sea, how
+     heavy she is riding, and whether she is over her marks.
+     The middle term is what keeps the game honest — every
+     upgrade that grows the haul faster also pays for itself in
+     risk, so no loadout ever turns the sea into a sure thing.
 
-     Simulated: an unupgraded fishing trip peaks in expected
-     value around 45s at x1.20 with a 61% chance of getting
-     home. Fully fitted out, the peak moves to ~65s and x1.87.
-     Night cargo runs peak highest and survive least.
+     Simulated, unupgraded coastal fishing, no crew calls: the
+     expected value peaks around 50s at $48 with a 53% chance of
+     getting home, and she is riding at exactly 1.00 of her load
+     line when it does. That is the point of the overload terms
+     below — the mark the readout draws is the mark the maths
+     agrees with. Fully fitted the peak moves to ~70s, and night
+     cargo runs peak highest and survive least.
      ------------------------------------------------------ */
 
-  var BASE = { growth: 0.0130, hazard: 0.0050, ramp: 0.00018, weight: 0.30, overload: 0.30 };
+  /* The overload penalty is three terms because one was not enough. A pure
+     quadratic is flat where it matters — a boat one pound over her marks
+     notices nothing — so crossing the line has to cost something the instant
+     it happens (overStep), then climb steadily (overLin), then run away from
+     you (overQuad). Simulated: it lands a bare boat's best play exactly on
+     her load line, back from 1.16 of it under a quadratic alone, while a
+     fully fitted boat's peak still sits at 1.5-2.0 — the upgrades buy the
+     overload, not the ignorance of it. */
+  var BASE = {
+    growth: 0.0130, hazard: 0.0050, ramp: 0.00018, weight: 0.30,
+    overStep: 0.35, overLin: 0.90, overQuad: 1.60
+  };
 
   var SAVE_KEY   = 'harborlight.voyage.v1';
   var START_BANK = 150;
@@ -1128,8 +1387,65 @@ input[type=range]::-moz-range-thumb {
       apply: function (r) { addMod(r, 'growth', 0.35, 8); return 'catch stalled 8s'; } },
     { id: 'patrol',   weight: 8, treasure: false, tone: 'bad', only: 'cargo',
       text: 'A patrol light sweeps the water',
-      apply: function (r) { addMod(r, 'hazard', 2.40, 6); return 'risk spiking for 6s'; } }
+      apply: function (r) { addMod(r, 'hazard', 2.40, 6); return 'risk spiking for 6s'; } },
+
+    /* Only reachable once she is over her marks, and likelier the deeper she
+       sits. A boat riding low takes water over the rail, and what goes over
+       the rail takes part of the deck load with it. */
+    { id: 'swamp',    weight: 0, treasure: false, tone: 'bad', over: true,
+      text: 'A sea comes green over the rail',
+      apply: function (r) { var b = 0.14 + Math.random() * 0.14; r.catchMul *= (1 - b); return '−' + pct(b) + ' washed off the deck'; } }
   ];
+
+  // How heavily the swamping event weighs in once she is over her marks.
+  var SWAMP_WEIGHT = 14;
+
+  /* ---------------- The crew ----------------
+     Three calls a voyage and five seconds between them. A limit, not a
+     cooldown, is what makes these decisions: with unlimited presses the
+     best play is simply to drive her hard from the moment she reaches the
+     grounds, which is not a choice. Spending a call is; so is holding one
+     back for the squall that may or may not come.
+
+     Simulated against the fixed-recall optimum on tier-1 fishing: driving
+     her hard every time is worth about 14% over never touching the crew
+     ($72 against $63), mixing the three by situation ties that while getting
+     her home more often (55% against 52%), and hoarding all three loses to
+     spending them. No verb dominates. */
+  var CREW_CALLS = 3;
+  var CREW_CD    = 5;
+
+  var CREW = [
+    { id: 'hard', name: 'Work her hard', key: '1',
+      eff: '×1.7 catch, ×1.9 risk, 8s',
+      hint: 'Nets down, every hand on deck. She fills faster and rides worse.',
+      apply: function (r) {
+        addMod(r, 'growth', 1.70, 8);
+        addMod(r, 'hazard', 1.90, 8);
+        return 'Every hand on deck — she is working hard.';
+      } },
+    { id: 'heave', name: 'Heave to', key: '2',
+      eff: '×0.4 risk, ×0.35 catch, 10s',
+      hint: 'Come about and ride it out. The catch all but stops; so does the danger.',
+      apply: function (r) {
+        addMod(r, 'hazard', 0.40, 10);
+        addMod(r, 'growth', 0.35, 10);
+        return 'Hove to, riding it out.';
+      } },
+    { id: 'trim', name: 'Trim the hold', key: '3',
+      eff: '−25% of the catch, at once',
+      hint: 'Shift ballast and put weight over the side. Costs catch, buys back the load line.',
+      apply: function (r) {
+        var before = aboard(r);
+        r.catchMul *= 0.75;
+        return 'Trimmed — ' + fmt(before - aboard(r)) + ' over the side.';
+      } }
+  ];
+
+  function crewAction(id) {
+    for (var i = 0; i < CREW.length; i++) if (CREW[i].id === id) return CREW[i];
+    return null;
+  }
 
   /* ---------------- State ---------------- */
 
@@ -1227,19 +1543,31 @@ input[type=range]::-moz-range-thumb {
     return BASE.ramp * v.k * (1 - 0.15 * state.upgrades.glass);
   }
 
+  /* How she is riding, as a multiple of her load line: 1.00 is exactly down
+     to her marks, 1.40 is forty percent over. Every weight-driven consequence
+     in the game reads off this one number, so the line the readout draws and
+     the line the sea enforces are the same line. */
+  function loadRatio(r) { return catchFrac(r) * weightFactor(); }
+
   function hazardAt(r, t) {
     var v = voyage(r.type);
-    // Time at sea raises the base risk; a heavy hold raises it again.
-    /* Weight tells twice. Up to the load line it is a steady drag; past it
+    /* Time at sea raises the base risk; how she is riding raises it again,
+       and weight tells twice. Up to her marks it is a steady drag. Past them
        the penalty turns on itself, so an overloaded boat gets dangerous far
-       faster than a merely full one. Without that second term the line was a
-       number you could sail straight past without consequence. */
-    var load = catchFrac(r);
-    var over = Math.max(0, load - 1);
-    var wf = weightFactor();
+       faster than a merely full one — that is what makes the line a decision
+       rather than a number you sail straight past. */
+    var ratio = loadRatio(r);
+    var over = Math.max(0, ratio - 1);
     var h = (hazardBase(v) + hazardRamp(v) * t) *
-            (1 + BASE.weight * wf * load + BASE.overload * wf * over * over);
+            (1 + BASE.weight * ratio + overloadTerm(over));
     return h * modFactor(r, 'hazard');
+  }
+
+  /* Nothing at all up to her marks, then a jump, then a climb that steepens.
+     Written apart from hazardAt so the shape is one readable thing. */
+  function overloadTerm(over) {
+    if (over <= 0) return 0;
+    return BASE.overStep + BASE.overLin * over + BASE.overQuad * over * over;
   }
 
   function modFactor(r, type) {
@@ -1281,6 +1609,15 @@ input[type=range]::-moz-range-thumb {
     return null;
   }
   function lockerShare() { return LOCKER[state.upgrades.insurance]; }
+
+  /* The locker only saves what will float clear. Loaded past her marks she
+     goes down too fast and too heavy to give it up, so the share bleeds away
+     over the line and is gone at double it. The safety net fails exactly
+     where you are leaning on it hardest — that is the point of it. */
+  function lockerAt(r) {
+    var over = Math.max(0, loadRatio(r) - 1);
+    return lockerShare() * Math.max(0, 1 - over);
+  }
 
   /* What fraction of a full hold she is carrying. Growth raises it; events
      scale it. Never negative — an empty net is empty, not a debt. */
@@ -1333,6 +1670,7 @@ input[type=range]::-moz-range-thumb {
      'cost-summary', 'daily-btn', 'daily-note', 'sea', 'sea-overlay', 'grid', 'store-list',
      'r-time', 'r-mult', 'r-haul', 'r-weight', 'r-value', 'r-locker',
      'risk-fill', 'risk-label', 'risk-note',
+     'crew', 'crew-row', 'crew-calls',
      'action-btn', 'stage-hint', 'upgrade-list', 'log', 'stats', 'reset-btn', 'sound-btn'
     ].forEach(function (id) { el[id] = $(id); });
   }
@@ -1430,15 +1768,17 @@ input[type=range]::-moz-range-thumb {
     var win = safeWindow(v);
     var lines = [
       'A full hold on these grounds is worth about <b>' + fmt(catchScale(v)) + '</b>.',
-      'Her load line is <b>' + fmtLb(loadLineLb()) + '</b>; past that she is overloaded.',
+      'Her load line is <b>' + fmtLb(loadLineLb()) + '</b>. Past it the danger jumps and keeps climbing.',
       'At this rate the catch doubles in about <b>' + Math.round(Math.LN2 / growthRate(v)) + 's</b>.',
       win === null
         ? 'These grounds stay gentle for as long as you care to work them.'
         : 'About <b>' + Math.round(win) + 's</b> of working before the danger turns.'
     ];
     if (lockerShare() > 0) {
-      lines.push('The locker saves <b>' + pct(lockerShare()) + '</b> of the catch if she goes down.');
+      lines.push('The locker saves <b>' + pct(lockerShare()) + '</b> of the catch if she goes down — ' +
+                 'less the deeper she is riding, and nothing at double her line.');
     }
+    lines.push('Three crew calls a voyage, ' + CREW_CD + 's apart. Trimming the hold buys the line back.');
     if (run && run.target) {
       lines.push('Beacon set to bring her home at <b>' + fmt(run.target) + '</b>.');
     }
@@ -1777,6 +2117,14 @@ input[type=range]::-moz-range-thumb {
                         tone({ freq: 190, type: 'square', dur: 0.16, gain: 0.10, cutoff: 600, delay: 0.22 }); }
   function sfxAbort() { tone({ freq: 420, to: 240, type: 'triangle', dur: 0.25, gain: 0.11 }); }
 
+  /* One voice per call, so you can tell what the crew did without looking:
+     hard is a rising pair, heave to is a falling one, trim is a splash. */
+  function sfxCrew(id) {
+    if (id === 'hard')  { notes([330, 494], { type: 'square', dur: 0.16, gain: 0.09, cutoff: 1400, step: 0.07 }); return; }
+    if (id === 'heave') { notes([494, 330], { type: 'triangle', dur: 0.26, gain: 0.10, step: 0.09 }); return; }
+    noiseBurst({ dur: 0.35, gain: 0.10, filter: 'lowpass', cutoff: 1400, to: 300 });
+  }
+
   function sfxUpgrade() { notes([392, 523, 659, 784], { type: 'triangle', dur: 0.28, gain: 0.12, step: 0.055 }); }
   function sfxCharter() { notes([392, 494, 587, 784, 988], { type: 'triangle', dur: 0.4, gain: 0.13, step: 0.09 }); }
 
@@ -1863,7 +2211,6 @@ input[type=range]::-moz-range-thumb {
     run = {
       type: v.id,
       scale: catchScale(v),       // the ground decides what a full hold is worth
-      cover: lockerShare(),
       phase: 'outbound',
       phaseT: 0,
       t: 0,
@@ -1872,6 +2219,8 @@ input[type=range]::-moz-range-thumb {
       survival: 1,
       mods: [],
       nextEvent: 6 + Math.random() * 7,
+      calls: CREW_CALLS,
+      crewCd: 0,
       pingT: 1.2,
       target: state.upgrades.beacon > 0 ? state.autoRecall : null,
       progress: 0,
@@ -1942,7 +2291,10 @@ input[type=range]::-moz-range-thumb {
     run.phase = 'sunk';
     run.phaseT = 0;
     var value = round2(aboard(run));
-    var refund = round2(value * run.cover);
+    // The share is read off how she was riding when she went, not off the
+    // shipyard receipt — a boat over her marks takes the locker down with her.
+    var cover = lockerAt(run);
+    var refund = round2(value * cover);
     var lostValue = round2(value - refund);
 
     state.stats.sunk++;
@@ -1956,11 +2308,14 @@ input[type=range]::-moz-range-thumb {
     ambientStop();
 
     logMsg('Lost at sea after ' + run.t.toFixed(1) + 's — ' + fmt(lostValue) + ' gone' +
-      (refund > 0 ? '. The locker saves ' + fmt(refund) + '.' : '.'), 'bad');
+      (refund > 0 ? '. The locker saves ' + fmt(refund) + '.'
+        : lockerShare() > 0 ? '. Too deep for the locker to float free.' : '.'), 'bad');
     floatMsg('−' + fmt(lostValue), 'bad');
     setHint('She went down with ' + fmt(value) + ' of catch aboard. ' +
       (refund > 0 ? 'The sealed locker floats free with ' + fmt(refund) + '.'
-                  : 'Your bank is untouched — only the catch is gone.'));
+        : lockerShare() > 0
+            ? 'She was over her marks — the locker went down with her.'
+            : 'Your bank is untouched — only the catch is gone.'));
     dirty = true;
   }
 
@@ -1996,6 +2351,7 @@ input[type=range]::-moz-range-thumb {
 
     if (run.phase === 'working') {
       run.t += dt;
+      if (run.crewCd > 0) run.crewCd = Math.max(0, run.crewCd - dt);
 
       // expire finished modifiers
       for (var i = run.mods.length - 1; i >= 0; i--) {
@@ -2041,17 +2397,41 @@ input[type=range]::-moz-range-thumb {
     }
   }
 
+  /* ---------------- The crew ---------------- */
+
+  function crewReady() {
+    return !!run && run.phase === 'working' && run.crewCd <= 0 && run.calls > 0;
+  }
+
+  function callCrew(id) {
+    if (!crewReady()) return;
+    var act = crewAction(id);
+    if (!act) return;
+    var detail = act.apply(run);
+    run.calls--;
+    run.crewCd = CREW_CD;
+    sfxCrew(id);
+    floatMsg(act.name, id === 'heave' ? 'info' : id === 'trim' ? 'gold' : 'good');
+    logMsg(detail + ' (' + plural(run.calls, 'call') + ' left)', id === 'trim' ? 'gold' : 'info');
+    dirty = true;
+  }
+
   function fireEvent(r) {
     var v = voyage(r.type);
     var pool = [];
     var total = 0;
+    var over = Math.max(0, loadRatio(r) - 1);
     for (var i = 0; i < EVENTS.length; i++) {
       var e = EVENTS[i];
       if (e.only && e.only !== v.id) continue;
-      var w = e.weight * (e.treasure ? 0.4 + v.treasure * 2.2 : 1);
+      var w = e.over
+        ? SWAMP_WEIGHT * Math.min(3, over)          // impossible under the line
+        : e.weight * (e.treasure ? 0.4 + v.treasure * 2.2 : 1);
+      if (w <= 0) continue;
       total += w;
       pool.push({ e: e, w: total });
     }
+    if (total <= 0) return;
     var pick = Math.random() * total;
     var chosen = pool[pool.length - 1].e;
     for (var j = 0; j < pool.length; j++) {
@@ -2121,10 +2501,18 @@ input[type=range]::-moz-range-thumb {
       ? 'overloaded by ' + fmtLb(overBy)
       : Math.round(lb).toLocaleString('en-US') + ' / ' + fmtLb(line);
     el['r-weight'].classList.toggle('is-over', overBy > 0);
-    el['r-value'].textContent = fmt(held * lockerShare());
-    el['r-locker'].textContent = lockerShare() > 0
-      ? pct(lockerShare()) + ' in the locker'
-      : 'no locker fitted';
+
+    /* Shown live rather than off the shipyard receipt: watching the secured
+       figure fall away while the catch climbs is the whole argument against
+       loading her past her marks. */
+    var cover = run ? lockerAt(run) : lockerShare();
+    el['r-value'].textContent = fmt(held * cover);
+    el['r-locker'].textContent = lockerShare() === 0
+      ? 'no locker fitted'
+      : cover <= 0 ? 'too deep to float free'
+      : cover < lockerShare() ? pct(cover) + ' — sitting too low'
+      : pct(cover) + ' in the locker';
+    el['r-locker'].classList.toggle('is-over', lockerShare() > 0 && cover < lockerShare());
 
     var risk20 = 0;
     if (run && run.phase === 'working') {
@@ -2164,6 +2552,7 @@ input[type=range]::-moz-range-thumb {
     el['risk-label'].style.color = live ? step.color : 'var(--muted)';
 
     renderDaily();
+    renderCrew();
 
     var phase = run ? run.phase : 'idle';
     var pill = el['status-pill'];
@@ -2211,10 +2600,45 @@ input[type=range]::-moz-range-thumb {
         sfxWarn();
         var lbNow = HOLD_LB * catchFrac(run);
         logMsg('Danger is ' + label.toLowerCase() + ' — ' + fmtLb(lbNow) +
-          (lbNow > loadLineLb() ? ' aboard and overloaded' : ' aboard') +
+          (lbNow > loadLineLb() ? ' aboard, over her marks' : ' aboard') +
           ', worth ' + fmt(aboard(run)), label === 'Extreme' ? 'bad' : 'gold');
       }
     }
+  }
+
+  /* Built once; only the disabled state, the cooldown wipe and the counter
+     change from frame to frame, so the buttons never rebuild under a press. */
+  function buildCrew() {
+    var html = '';
+    for (var i = 0; i < CREW.length; i++) {
+      var c = CREW[i];
+      html += '<button class="crew-btn" type="button" data-crew="' + c.id + '" title="' + c.hint + '">' +
+                '<span class="crew-key">' + c.key + '</span>' +
+                '<span class="crew-name">' + c.name + '</span>' +
+                '<span class="crew-eff">' + c.eff + '</span>' +
+                '<span class="crew-cool" aria-hidden="true"></span>' +
+              '</button>';
+    }
+    el['crew-row'].innerHTML = html;
+  }
+
+  function renderCrew() {
+    var working = !!run && run.phase === 'working';
+    el.crew.hidden = !working;
+    if (!working) return;
+
+    var ready = crewReady();
+    var wipe = run.crewCd > 0 ? (run.crewCd / CREW_CD) * 100 : 0;
+    var btns = el['crew-row'].children;
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].disabled = !ready;
+      btns[i].lastElementChild.style.width = wipe.toFixed(1) + '%';
+    }
+
+    el['crew-calls'].textContent = run.calls > 0
+      ? plural(run.calls, 'call') + ' left'
+      : 'spent';
+    el['crew-calls'].classList.toggle('is-spent', run.calls <= 0);
   }
 
   function setHint(text, tone) {
@@ -2390,7 +2814,7 @@ input[type=range]::-moz-range-thumb {
     if (run && run.phase === 'sunk') {
       drawSinking(bx, by, tilt, run.sinkT, time);
     } else {
-      drawBoat(bx, by, tilt, run && run.phase === 'working');
+      drawBoat(bx, by, tilt, run && run.phase === 'working', run ? loadRatio(run) : 0);
     }
 
     drawParticles(time);
@@ -2421,10 +2845,18 @@ input[type=range]::-moz-range-thumb {
     ctx.fill();
   }
 
-  function drawBoat(x, y, tilt, working) {
+  /* ratio is how she is riding against her load line. She settles into the
+     water as the hold fills, and past her marks she takes on a list — the
+     readout says "overloaded", but you should be able to see it without
+     reading anything. */
+  function drawBoat(x, y, tilt, working, ratio) {
+    var load = Math.max(0, Math.min(2.2, ratio || 0));
+    var settle = Math.min(1, load) * 2.6 + Math.max(0, load - 1) * 2.2;
+    var list = Math.max(0, load - 1) * 0.10;
+
     ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(tilt);
+    ctx.translate(x, y + settle);
+    ctx.rotate(tilt + list);
 
     // mast
     ctx.strokeStyle = '#d8c9ae';
@@ -2481,7 +2913,7 @@ input[type=range]::-moz-range-thumb {
     ctx.translate(x, y + sink);
     ctx.rotate(roll);
     ctx.translate(-x, -(y + sink));
-    drawBoat(x, y + sink, 0, false);
+    drawBoat(x, y + sink, 0, false, 0);
     ctx.restore();
 
     if (Math.random() < 0.5) {
@@ -2652,6 +3084,11 @@ input[type=range]::-moz-range-thumb {
       if (pk) buyPack(pk.dataset.pack);
     });
 
+    el['crew-row'].addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-crew]');
+      if (btn) callCrew(btn.dataset.crew);
+    });
+
     el['upgrade-list'].addEventListener('click', function (e) {
       var btn = e.target.closest('[data-buy]');
       if (btn) buyUpgrade(btn.dataset.buy);
@@ -2689,9 +3126,19 @@ input[type=range]::-moz-range-thumb {
 
     document.addEventListener('keydown', function (e) {
       if (e.target.tagName === 'INPUT') return;
+      /* A focused button already activates itself on Space, so the global
+         shortcut has to stand aside or one press fires twice — which read as
+         setting sail and aborting in the same keystroke. */
+      if (e.code === 'Space' && e.target.tagName === 'BUTTON') return;
       if (e.code === 'Space') {
         e.preventDefault();
         if (run) recall('manual'); else launch();
+        return;
+      }
+      // 1/2/3 call the crew while she is working — the row is right there,
+      // but at the moment a squall lands you want the keys.
+      for (var i = 0; i < CREW.length; i++) {
+        if (e.key === CREW[i].key) { ensureAudio(); callCrew(CREW[i].id); return; }
       }
     });
   }
@@ -2701,6 +3148,7 @@ input[type=range]::-moz-range-thumb {
   function boot() {
     cacheDom();
     state = load();
+    buildCrew();
     initCanvas();
     bind();
     applyCollapsed();
@@ -2717,161 +3165,7 @@ input[type=range]::-moz-range-thumb {
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 })();
-
 </script>
-</head>
-<body>
-
-<header class="topbar">
-  <div class="brand">
-    <span class="brand-mark">&#9973;</span>
-    <span class="brand-text">Harborlight<em>a sailboat venture</em></span>
-  </div>
-  <div class="topbar-right">
-    <div class="bank">
-      <span class="bank-label">Bank</span>
-      <strong id="bank">$0</strong>
-    </div>
-    <button class="daily-btn" id="daily-btn" hidden>+ $100 daily</button>
-    <button class="sound-btn" id="sound-btn" aria-pressed="true" aria-label="Mute sound">&#128266;</button>
-    <div class="status-pill" id="status-pill" data-phase="idle">At dock</div>
-  </div>
-</header>
-
-<main class="grid" id="grid">
-
-  <!-- ============ LAUNCH PANEL ============ -->
-  <section class="panel collapsible" id="panel-launch">
-    <div class="panel-head">
-      <h2 class="panel-title">Charter a voyage</h2>
-      <button class="collapse-btn" data-collapse="launch" aria-expanded="true"
-              aria-controls="launch-body" aria-label="Collapse the charter panel"></button>
-    </div>
-    <span class="rail-label" aria-hidden="true">Charter a voyage</span>
-
-    <div class="panel-body" id="launch-body">
-      <div class="field">
-        <div class="field-head"><label>Purpose</label></div>
-        <div id="voyage-list" class="voyage-list"></div>
-      </div>
-
-      <div class="field" id="beacon-field" hidden>
-        <div class="field-head">
-          <label for="auto-recall">Beacon auto-recall</label>
-          <span class="field-note">at catch value</span>
-        </div>
-        <div class="stake-row">
-          <span class="currency">$</span>
-          <input type="number" id="auto-recall" min="1" step="10" placeholder="off" inputmode="decimal">
-        </div>
-      </div>
-
-      <div class="cost-summary" id="cost-summary"></div>
-
-      <p class="daily-note" id="daily-note" hidden></p>
-    </div>
-  </section>
-
-  <!-- ============ STAGE ============ -->
-  <section class="panel stage" id="panel-stage">
-    <div class="sea-wrap">
-      <canvas id="sea"></canvas>
-      <div class="sea-overlay" id="sea-overlay"></div>
-    </div>
-
-    <div class="readouts">
-      <div class="readout">
-        <span class="readout-label">Time at sea</span>
-        <strong id="r-time">0.0s</strong>
-        <span class="readout-sub"></span>
-      </div>
-      <div class="readout">
-        <span class="readout-label">Provisions</span>
-        <strong id="r-mult" class="gold">0</strong>
-        <span class="readout-sub"></span>
-      </div>
-      <div class="readout">
-        <span class="readout-label">Catch aboard</span>
-        <strong id="r-haul" class="gold">$0</strong>
-        <span class="readout-sub" id="r-weight">0 lb</span>
-      </div>
-      <div class="readout">
-        <span class="readout-label">Secured if lost</span>
-        <strong id="r-value">$0</strong>
-        <span class="readout-sub" id="r-locker"></span>
-      </div>
-    </div>
-
-    <div class="risk">
-      <div class="risk-head">
-        <span>Danger</span>
-        <span id="risk-label">Calm</span>
-      </div>
-      <div class="risk-track"><div class="risk-fill" id="risk-fill"></div></div>
-      <div class="risk-note" id="risk-note">No instruments aboard &mdash; fit a Storm Glass to read exact odds.</div>
-    </div>
-
-    <button class="primary action-btn" id="action-btn">Set sail</button>
-    <p class="stage-hint" id="stage-hint">Send her out and let the catch build. Every second aboard is worth more &mdash; and easier to lose.</p>
-  </section>
-
-  <!-- ============ SIDE PANEL ============ -->
-  <section class="panel collapsible" id="panel-side">
-    <div class="panel-head">
-      <h2 class="panel-title">Harbor office</h2>
-      <button class="collapse-btn" data-collapse="side" aria-expanded="true"
-              aria-controls="side-body" aria-label="Collapse the harbor office panel"></button>
-    </div>
-    <span class="rail-label" aria-hidden="true">Harbor office</span>
-
-    <div class="panel-body" id="side-body">
-      <div class="tabs" role="tablist">
-        <button class="tab is-active" data-tab="shipyard" role="tab">Shipyard</button>
-        <button class="tab" data-tab="log" role="tab">Log</button>
-        <button class="tab" data-tab="store" role="tab">Chandler</button>
-        <button class="tab" data-tab="stats" role="tab">Records</button>
-      </div>
-
-      <div class="tab-body is-active" data-panel="shipyard">
-        <div id="upgrade-list" class="upgrade-list"></div>
-      </div>
-
-      <div class="tab-body" data-panel="log">
-        <ul id="log" class="log"></ul>
-      </div>
-
-      <div class="tab-body" data-panel="store">
-        <div id="store-list" class="store-list"></div>
-      </div>
-
-      <div class="tab-body" data-panel="stats">
-        <dl id="stats" class="stats"></dl>
-        <button class="ghost small" id="reset-btn">Scuttle the fleet (reset save)</button>
-      </div>
-    </div>
-  </section>
-</main>
-
-<details class="howto">
-  <summary>How Harborlight works</summary>
-  <div class="howto-body">
-    <p><strong>Provision and sail.</strong> A voyage costs one provision from the chandler. Pick a ground, send her out, and the catch starts building the moment she reaches it.</p>
-    <p><strong>Time is the payout.</strong> The longer the boat works, the more the catch is worth. It compounds, so the last ten seconds aboard are always worth more than the first ten.</p>
-    <p><strong>Time is also the risk.</strong> Every second carries a chance she goes down, and that chance <em>climbs</em> the longer she stays out. What is in the hold is what you stand to lose.</p>
-    <p><strong>Mind the load line.</strong> Watch the weight climb beside the catch. Danger scales with what she is carrying as well as with the clock, and past her load line it climbs sharply &mdash; an overloaded boat is in far more trouble than a merely full one. A larger hold raises the line; nothing else does.</p>
-    <p><strong>Call it home.</strong> Recalling stops the catch growing and banks what she has. The sail home is safe &mdash; the decision is the whole game.</p>
-    <p><strong>Spend on the shipyard.</strong> Hulls and storm glasses cut risk, sonar fills the hold faster, a larger hold blunts the extra danger a heavy catch attracts, and a salvage locker keeps part of the catch afloat when the worst happens.</p>
-    <p><strong>A stipend a day.</strong> The harbor pays out $100 once every twenty-four hours, waiting in the header whenever it is due. Run out of both provisions and funds and it is your way back.</p>
-    <p><strong>Charter new grounds.</strong> Fishing is only the start. Trawling, salvage diving, and night cargo runs each rewrite the risk-and-reward curve &mdash; and a full hold is worth far more out there.</p>
-    <p><strong>Listen to her.</strong> A sonar ping marks the time she is working, and it quickens and rises as the odds turn against you &mdash; you can judge the danger with your eyes shut. The speaker button in the header silences everything.</p>
-  </div>
-</details>
-
-<footer class="site-footer">
-  <a href="../personal/">&larr; Back to davidsoard.com</a>
-  <span class="copyright">&copy; 2026 David Soard. All rights reserved.</span>
-  <span>Progress saves to this browser.</span>
-</footer>
 
 </body>
 </html>
