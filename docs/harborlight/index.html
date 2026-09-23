@@ -517,7 +517,7 @@ input[type=range]::-moz-range-thumb {
   background: #071018;
 }
 
-#sea { display: block; width: 100%; height: 300px; }
+#sea { display: block; width: 100%; height: 390px; }
 
 .sea-overlay { position: absolute; inset: 0; pointer-events: none; }
 
@@ -645,84 +645,133 @@ input[type=range]::-moz-range-thumb {
 
 .risk-note { margin-top: 6px; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
 
-/* ---------- The crew ----------
-   Three calls a voyage, so the row has to read as a spend: the counter goes
-   quiet when it is empty and the cooldown wipes across each button in place
-   rather than greying the row out and back. */
-.crew { display: grid; gap: 6px; }
-
-.crew-head {
+/* ---------- The crew, on the water ----------
+   The controls live on the scene rather than in cards under it: the crew
+   stand off in the top-left corner, where the sky is empty at every width,
+   and the one button that runs the loop sits along the bottom of the sea.
+   Icons rather than words, because three labelled buttons over the water
+   would be a second panel wearing the scene as a background. */
+.crew {
+  position: absolute;
+  top: 10px;
+  left: 10px;
   display: flex;
-  justify-content: space-between;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: .14em;
-  text-transform: uppercase;
-  color: var(--muted);
+  align-items: center;
+  gap: 8px;
+  padding: 6px 9px 6px 6px;
+  border-radius: 12px;
+  background: rgba(6, 12, 19, .58);
+  border: 1px solid rgba(255,255,255,.10);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: opacity .25s ease;
 }
 
-#crew-calls { color: var(--accent); transition: color .25s ease; }
-#crew-calls.is-spent { color: var(--muted); }
+.crew.is-spent { opacity: .62; }
 
-.crew-row {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
-}
+.crew-row { display: flex; gap: 5px; }
 
 .crew-btn {
   position: relative;
   overflow: hidden;
+  width: 38px;
+  height: 38px;
   display: grid;
-  gap: 1px;
-  padding: 7px 8px 8px;
-  text-align: left;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface-2);
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  background: rgba(19, 30, 41, .85);
   color: var(--text);
   cursor: pointer;
-  transition: border-color .18s ease, background .18s ease, transform .1s ease;
+  transition: border-color .18s ease, background .18s ease, color .18s ease, transform .1s ease;
 }
 
-.crew-btn:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-soft); }
+.crew-btn svg {
+  width: 21px;
+  height: 21px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.crew-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
 .crew-btn:active:not(:disabled) { transform: translateY(1px); }
-.crew-btn:disabled { cursor: default; opacity: .55; }
+.crew-btn:disabled { cursor: default; color: var(--muted); }
+.crew-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .crew-key {
   position: absolute;
-  top: 6px;
-  right: 7px;
+  bottom: 1px;
+  right: 3px;
   font-family: var(--mono);
-  font-size: 9px;
+  font-size: 8px;
+  line-height: 1;
   color: var(--muted);
 }
 
-.crew-btn { min-height: 58px; align-content: center; }
-.crew-name { font-size: 12px; font-weight: 600; line-height: 1.25; padding-right: 12px; }
-.crew-eff {
-  font-size: 9.5px;
-  color: var(--muted);
-  line-height: 1.3;
-  letter-spacing: -.01em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* The wipe sits over the button and drains left as the call comes back. */
+/* Drains downward as the call comes back, so the icon is uncovered from the
+   bottom up — a recharge rather than a greyed-out button. */
 .crew-cool {
   position: absolute;
-  inset: 0 auto 0 0;
-  width: 0%;
-  background: rgba(6, 10, 15, .62);
+  inset: 0 0 auto 0;
+  height: 0%;
+  background: rgba(6, 10, 15, .70);
   pointer-events: none;
-  transition: width .1s linear;
+  transition: height .1s linear;
 }
 
+/* One pip a call. Stacks into two columns once the bosun pushes it past
+   four, so the cluster never grows a long tail across the water. */
+.crew-pips {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(3, auto);
+  gap: 4px;
+  align-content: center;
+}
+
+.crew-pips i {
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 5px rgba(79,209,197,.55);
+  transition: background .2s ease, box-shadow .2s ease;
+}
+
+.crew-pips i.is-spent {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+
+/* ---------- The action bar, on the water ---------- */
+.stage-hud {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 34px 12px 12px;
+  background: linear-gradient(to top, rgba(4, 9, 14, .86) 38%, rgba(4, 9, 14, 0));
+  pointer-events: none;
+}
+
+.stage-hud .action-btn { pointer-events: auto; }
+
 @media (max-width: 560px) {
-  .crew-eff { display: none; }
-  .crew-btn { padding: 9px 8px; }
+  .crew { top: 8px; left: 8px; gap: 6px; padding: 5px 7px 5px 5px; }
+  .crew-btn { width: 40px; height: 40px; }
+  .stage-hud { padding: 30px 9px 9px; }
+  /* Keeps "Call her back — bank $46.44" on one line, so the bar does not
+     grow a second row and eat the scene it is sitting on. */
+  .stage-hud .action-btn { font-size: 12px; letter-spacing: .04em; padding: 12px 8px; }
 }
 
 .stage-hint {
@@ -801,6 +850,17 @@ input[type=range]::-moz-range-thumb {
 }
 
 .upgrade-desc { font-size: 11.5px; color: var(--muted); margin: 4px 0 9px; }
+
+/* A caveat the player has to meet before the upgrade pays — set apart from
+   the blurb, because a warning buried in muted body copy is not a warning. */
+.upgrade-warn {
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--danger);
+  margin: -4px 0 9px;
+  padding-left: 9px;
+  border-left: 2px solid rgba(239, 91, 91, .45);
+}
 
 .upgrade-buy {
   width: 100%;
@@ -968,6 +1028,34 @@ input[type=range]::-moz-range-thumb {
 .howto-body p { margin: 0 0 10px; }
 .howto-body strong { color: var(--text); }
 
+/* The crew buttons carry no words on the water, so the how-to has to show
+   the same three marks beside what they do. */
+.howto-keys { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 9px; }
+
+.howto-keys li { display: flex; align-items: flex-start; gap: 11px; }
+
+.howto-icon {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.howto-icon svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .site-footer {
   display: flex;
   justify-content: space-between;
@@ -1033,7 +1121,7 @@ input[type=range]::-moz-range-thumb {
   .grid.left-collapsed,
   .grid.right-collapsed,
   .grid.left-collapsed.right-collapsed { grid-template-columns: minmax(0, 1fr); }
-  #sea { height: 220px; }
+  #sea { height: 280px; }
   .readouts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .bank strong { font-size: 19px; }
   .topbar { padding: 12px 16px; }
@@ -1098,6 +1186,18 @@ input[type=range]::-moz-range-thumb {
     <div class="sea-wrap">
       <canvas id="sea"></canvas>
       <div class="sea-overlay" id="sea-overlay"></div>
+
+      <!-- Everything you do is on the water now: the crew stand off in the
+           top corner, and the one control that runs the loop sits along the
+           bottom of the scene. -->
+      <div class="crew" id="crew" hidden>
+        <div class="crew-row" id="crew-row"></div>
+        <div class="crew-pips" id="crew-calls"></div>
+      </div>
+
+      <div class="stage-hud">
+        <button class="primary action-btn" id="action-btn">Set sail</button>
+      </div>
     </div>
 
     <div class="readouts">
@@ -1132,15 +1232,6 @@ input[type=range]::-moz-range-thumb {
       <div class="risk-note" id="risk-note">No instruments aboard &mdash; fit a Storm Glass to read exact odds.</div>
     </div>
 
-    <div class="crew" id="crew" hidden>
-      <div class="crew-head">
-        <span>Crew</span>
-        <span id="crew-calls">3 calls left</span>
-      </div>
-      <div class="crew-row" id="crew-row"></div>
-    </div>
-
-    <button class="primary action-btn" id="action-btn">Set sail</button>
     <p class="stage-hint" id="stage-hint">Send her out and let the catch build. Every second aboard is worth more &mdash; and easier to lose.</p>
   </section>
 
@@ -1188,9 +1279,19 @@ input[type=range]::-moz-range-thumb {
     <p><strong>Time is the payout.</strong> The longer the boat works, the more the catch is worth. It compounds, so the last ten seconds aboard are always worth more than the first ten.</p>
     <p><strong>Time is also the risk.</strong> Every second carries a chance she goes down, and that chance <em>climbs</em> the longer she stays out. What is in the hold is what you stand to lose.</p>
     <p><strong>Mind the load line.</strong> Watch the weight climb beside the catch. Danger scales with what she is carrying as well as with the clock, and crossing her load line raises the stakes on the spot: the danger jumps, then climbs away from you, seas start coming over the rail and washing catch off the deck, and the salvage locker stops working &mdash; a boat riding that low cannot float anything free, so the deeper she sits the less of the catch is secured, and at double her line none of it is. A larger hold raises the line; nothing else does.</p>
-    <p><strong>Call the crew.</strong> You get three calls a voyage, five seconds apart, and they are the only things you steer once she is on the grounds. <em>Work her hard</em> fills the hold faster and makes her ride worse. <em>Heave to</em> all but stops the catch and all but stops the danger &mdash; the answer to a squall. <em>Trim the hold</em> puts a quarter of the catch over the side to buy the load line back. Keys 1, 2 and 3. Spending them beats hoarding them; spending them at the right moment beats spending them early.</p>
+    <p><strong>Call the crew.</strong> Three buttons stand off in the top corner of the water while she is working, and they are the only things you steer once she is on the grounds. A pip beside them for every call you have left.</p>
+    <ul class="howto-keys">
+      <li><span class="howto-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2.5V21"/><path d="M13 4.5c4.2 3 6.4 7.6 6.8 12.5H13z" fill="currentColor" stroke="none"/><path d="M3 7.5h4.5M1.5 12h5M3.5 16.5H8"/></svg></span>
+          <span><strong>Work her hard</strong> <em>(key 1)</em> &mdash; a full sail. Nets down and every hand on deck: the catch grows &times;1.7 for eight seconds, and the danger &times;1.9 with it.</span></li>
+      <li><span class="howto-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="3.6" r="2.1"/><path d="M12 5.7V21"/><path d="M7.4 9.2h9.2"/><path d="M4 13.6c0 4.6 3.6 7.2 8 7.2s8-2.6 8-7.2"/><path d="M2.4 15.4 4 13.2l2 1.7M18 14.9l2-1.7 1.6 2.2"/></svg></span>
+          <span><strong>Heave to</strong> <em>(key 2)</em> &mdash; an anchor. Come about and ride it out: the danger drops to &times;0.4 for ten seconds and the catch all but stops. This is the answer to a squall.</span></li>
+      <li><span class="howto-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="6.6" y="2.4" width="10.8" height="7.6" rx="1.2"/><path d="M6.6 6.2h10.8M12 2.4v7.6"/><path d="M7.6 12.6 12 16.4l4.4-3.8M7.6 17.2 12 21l4.4-3.8"/></svg></span>
+          <span><strong>Trim the hold</strong> <em>(key 3)</em> &mdash; a crate going over the rail. Puts a quarter of the catch over the side at once, buying back the load line and everything that hangs off it.</span></li>
+    </ul>
+    <p>Working her hard and heaving to are <em>standing orders</em> &mdash; a new one replaces the one before it rather than piling on top, so pressing the same button twice never doubles anything. Trimming is a one-off and leaves the standing order alone.</p>
+    <p>You start with three calls a voyage and five seconds between them. A ship's bosun from the shipyard raises both, and gets a better result out of every order besides. Spending calls beats hoarding them, and spending them at the right moment beats spending them early.</p>
     <p><strong>Call it home.</strong> Recalling stops the catch growing and banks what she has. The sail home is safe &mdash; the decision is the whole game.</p>
-    <p><strong>Spend on the shipyard.</strong> Hulls and storm glasses cut risk, sonar fills the hold faster, a larger hold blunts the extra danger a heavy catch attracts, and a salvage locker keeps part of the catch afloat when the worst happens.</p>
+    <p><strong>Spend on the shipyard.</strong> Hulls and storm glasses cut risk, sonar fills the hold faster, a larger hold raises the load line, a ship's bosun gets you more out of the crew, and a salvage locker keeps part of the catch afloat when the worst happens &mdash; as long as she is under her marks when she goes.</p>
     <p><strong>A stipend a day.</strong> The harbor pays out $100 once every twenty-four hours, waiting in the header whenever it is due. Run out of both provisions and funds and it is your way back.</p>
     <p><strong>Charter new grounds.</strong> Fishing is only the start. Trawling, salvage diving, and night cargo runs each rewrite the risk-and-reward curve &mdash; and a full hold is worth far more out there.</p>
     <p><strong>Listen to her.</strong> A sonar ping marks the time she is working, and it quickens and rises as the odds turn against you &mdash; you can judge the danger with your eyes shut. The speaker button in the header silences everything.</p>
@@ -1350,8 +1451,19 @@ input[type=range]::-moz-range-thumb {
     {
       id: 'insurance', name: 'Salvage Locker', costs: [750, 3000, 12000],
       blurb: 'A sealed, buoyant hold. Part of the catch floats free when she goes down, so a bad trip is never a total loss. Costs nothing to carry.',
+      warn: 'Only floats free while she is under her load line. The share bleeds away the deeper she rides and is gone at double it — an overloaded boat takes the locker down with her.',
       effect: function (l) { return l ? 'Saves ' + Math.round(LOCKER[l] * 100) + '% of the catch' : null; },
       next: function (l) { return 'Saves ' + Math.round(LOCKER[l + 1] * 100) + '% of the catch from a sinking'; }
+    },
+    {
+      id: 'bosun', name: "Ship's Bosun", costs: [500, 1800, 6000],
+      blurb: function () {
+        return 'A mate who knows the crew by name and gets an order carried out without being asked twice. Each tier: one more call a voyage, a second less between them, and a better result from every order — working her hard costs ×' +
+               hardRisk().toFixed(2) + ' danger rather than ×1.90, and a trim sheds ' +
+               Math.round((1 - trimShare()) * 100) + '% of the catch rather than 25%.';
+      },
+      effect: function (l) { return l ? (CREW_CALLS + l) + ' calls · ' + (CREW_CD - l) + 's apart · sharper orders' : null; },
+      next: function (l) { return (CREW_CALLS + l + 1) + ' calls a voyage, ' + (CREW_CD - l - 1) + 's apart'; }
     },
     {
       id: 'beacon', name: 'Radio Beacon', costs: [2500],
@@ -1407,29 +1519,63 @@ input[type=range]::-moz-range-thumb {
      grounds, which is not a choice. Spending a call is; so is holding one
      back for the squall that may or may not come.
 
-     Simulated against the fixed-recall optimum on tier-1 fishing: driving
-     her hard every time is worth about 14% over never touching the crew
-     ($72 against $63), mixing the three by situation ties that while getting
-     her home more often (55% against 52%), and hoarding all three loses to
-     spending them. No verb dominates. */
+     Simulated on tier-1 fishing, each line of play at its own best recall
+     time: no crew at all is worth $66.19 and gets her home 51.4% of the
+     time; three calls played well is $71.46 at 52.9%. Hoarding them loses to
+     spending them, and no verb dominates. */
   var CREW_CALLS = 3;
   var CREW_CD    = 5;
 
+  /* Ship's Bosun: one more call a voyage per tier, and a second off the wait
+     between them. The calls are what you notice; the shorter wait is what
+     lets you answer a squall and then trim inside the same ten seconds,
+     instead of picking one. */
+  function crewCalls() { return CREW_CALLS + state.upgrades.bosun; }
+
+  function crewWait()  { return CREW_CD - state.upgrades.bosun; }
+
+  /* More calls on their own measured as a downgrade: the extra one always
+     lands later in the trip, where driving her hard costs far more danger
+     than it buys catch, and a call you cannot profitably spend is worth
+     nothing. So the bosun sharpens the orders as well as adding them — she
+     rides better under the same push, and a trim sheds less for the same
+     relief. That is what makes the upgrade worth its money: tier-1 fishing
+     goes $70.79 / 52.8% home at bosun 0 to $74.69 / 59.5% at bosun 3, which
+     is mostly the survival column. Control of a voyage, not a bigger catch. */
+  function hardRisk()  { return [1.90, 1.74, 1.62, 1.52][state.upgrades.bosun]; }
+  function trimShare() { return [0.75, 0.79, 0.82, 0.85][state.upgrades.bosun]; }
+
+  /* Drawn rather than labelled: the row sits on the water now, and three
+     words apiece would bury the scene. A full sail for speed, an anchor for
+     riding it out, a crate going over the rail for trimming — each carries
+     its name and its numbers in a tooltip, and the how-to spells them out. */
+  var CREW_ICONS = {
+    hard:
+      '<path d="M13 2.5V21" /><path d="M13 4.5c4.2 3 6.4 7.6 6.8 12.5H13z" fill="currentColor" stroke="none"/>' +
+      '<path d="M3 7.5h4.5M1.5 12h5M3.5 16.5H8"/>',
+    heave:
+      '<circle cx="12" cy="3.6" r="2.1"/><path d="M12 5.7V21"/><path d="M7.4 9.2h9.2"/>' +
+      '<path d="M4 13.6c0 4.6 3.6 7.2 8 7.2s8-2.6 8-7.2"/><path d="M2.4 15.4 4 13.2l2 1.7M18 14.9l2-1.7 1.6 2.2"/>',
+    trim:
+      '<rect x="6.6" y="2.4" width="10.8" height="7.6" rx="1.2"/><path d="M6.6 6.2h10.8M12 2.4v7.6"/>' +
+      '<path d="M7.6 12.6 12 16.4l4.4-3.8M7.6 17.2 12 21l4.4-3.8"/>'
+  };
+
   var CREW = [
-    { id: 'hard', name: 'Work her hard', key: '1',
+    { id: 'hard', name: 'Work her hard', key: '1', standing: true,
       eff: '×1.7 catch, ×1.9 risk, 8s',
       hint: 'Nets down, every hand on deck. She fills faster and rides worse.',
       apply: function (r) {
-        addMod(r, 'growth', 1.70, 8);
-        addMod(r, 'hazard', 1.90, 8);
+        addMod(r, 'growth', 1.70, 8, 'crew');
+        addMod(r, 'hazard', hardRisk(), 8, 'crew');
         return 'Every hand on deck — she is working hard.';
       } },
-    { id: 'heave', name: 'Heave to', key: '2',
+    { id: 'heave', name: 'Heave to', key: '2', standing: true,
       eff: '×0.4 risk, ×0.35 catch, 10s',
       hint: 'Come about and ride it out. The catch all but stops; so does the danger.',
       apply: function (r) {
-        addMod(r, 'hazard', 0.40, 10);
-        addMod(r, 'growth', 0.35, 10);
+        addMod(r, 'hazard', 0.40, 10, 'crew');
+        addMod(r, 'growth', 0.35, 10, 'crew');
         return 'Hove to, riding it out.';
       } },
     { id: 'trim', name: 'Trim the hold', key: '3',
@@ -1437,10 +1583,18 @@ input[type=range]::-moz-range-thumb {
       hint: 'Shift ballast and put weight over the side. Costs catch, buys back the load line.',
       apply: function (r) {
         var before = aboard(r);
-        r.catchMul *= 0.75;
+        r.catchMul *= trimShare();
         return 'Trimmed — ' + fmt(before - aboard(r)) + ' over the side.';
       } }
   ];
+
+  /* Read live rather than baked into the table, because the bosun moves two
+     of these three numbers. */
+  function crewEff(c) {
+    if (c.id === 'hard') return '×1.7 catch, ×' + hardRisk().toFixed(2).replace(/0$/, '') + ' risk, 8s';
+    if (c.id === 'trim') return 'sheds ' + Math.round((1 - trimShare()) * 100) + '% of the catch, at once';
+    return c.eff;
+  }
 
   function crewAction(id) {
     for (var i = 0; i < CREW.length; i++) if (CREW[i].id === id) return CREW[i];
@@ -1457,7 +1611,7 @@ input[type=range]::-moz-range-thumb {
   function defaultState() {
     return {
       bank: START_BANK,
-      upgrades: { hull: 0, glass: 0, sonar: 0, hold: 0, insurance: 0, beacon: 0 },
+      upgrades: { hull: 0, glass: 0, sonar: 0, hold: 0, insurance: 0, bosun: 0, beacon: 0 },
       chartered: { fishing: true },
       selected: 'fishing',
       autoRecall: null,
@@ -1576,8 +1730,18 @@ input[type=range]::-moz-range-thumb {
     return f;
   }
 
-  function addMod(r, type, factor, seconds) {
-    r.mods.push({ type: type, factor: factor, until: r.t + seconds });
+  function addMod(r, type, factor, seconds, src) {
+    r.mods.push({ type: type, factor: factor, until: r.t + seconds, src: src || 'event' });
+  }
+
+  /* A standing order replaces the one before it rather than piling on top.
+     Stacked, two "work her hard" calls quietly meant ×2.89 catch against
+     ×3.61 danger — a worse trade than one, arrived at by pressing the same
+     button twice. The crew are doing one thing at a time. */
+  function clearStandingOrder(r) {
+    for (var i = r.mods.length - 1; i >= 0; i--) {
+      if (r.mods[i].src === 'crew') r.mods.splice(i, 1);
+    }
   }
 
   function weightFactor() { return HOLD_WEIGHT[state.upgrades.hold]; }
@@ -1778,7 +1942,8 @@ input[type=range]::-moz-range-thumb {
       lines.push('The locker saves <b>' + pct(lockerShare()) + '</b> of the catch if she goes down — ' +
                  'less the deeper she is riding, and nothing at double her line.');
     }
-    lines.push('Three crew calls a voyage, ' + CREW_CD + 's apart. Trimming the hold buys the line back.');
+    lines.push(plural(crewCalls(), 'crew call') + ' a voyage, ' + crewWait() +
+               's apart. Trimming the hold buys the line back.');
     if (run && run.target) {
       lines.push('Beacon set to bring her home at <b>' + fmt(run.target) + '</b>.');
     }
@@ -1816,6 +1981,7 @@ input[type=range]::-moz-range-thumb {
                       : (lvl ? 'FITTED' : 'NOT FITTED')) + '</span>' +
                 '</div>' +
                 '<p class="upgrade-desc">' + (eff ? '<strong style="color:var(--accent)">' + eff + '</strong> — ' : '') + ublurb + '</p>' +
+                (u.warn ? '<p class="upgrade-warn">' + u.warn + '</p>' : '') +
                 (maxed
                   ? '<button class="upgrade-buy maxed" disabled>Fully fitted</button>'
                   : '<button class="upgrade-buy" data-buy="' + u.id + '"' +
@@ -2219,7 +2385,7 @@ input[type=range]::-moz-range-thumb {
       survival: 1,
       mods: [],
       nextEvent: 6 + Math.random() * 7,
-      calls: CREW_CALLS,
+      calls: crewCalls(),
       crewCd: 0,
       pingT: 1.2,
       target: state.upgrades.beacon > 0 ? state.autoRecall : null,
@@ -2397,7 +2563,7 @@ input[type=range]::-moz-range-thumb {
     }
   }
 
-  /* ---------------- The crew ---------------- */
+  /* ---------------- Calling the crew ---------------- */
 
   function crewReady() {
     return !!run && run.phase === 'working' && run.crewCd <= 0 && run.calls > 0;
@@ -2407,9 +2573,10 @@ input[type=range]::-moz-range-thumb {
     if (!crewReady()) return;
     var act = crewAction(id);
     if (!act) return;
+    if (act.standing) clearStandingOrder(run);
     var detail = act.apply(run);
     run.calls--;
-    run.crewCd = CREW_CD;
+    run.crewCd = crewWait();
     sfxCrew(id);
     floatMsg(act.name, id === 'heave' ? 'info' : id === 'trim' ? 'gold' : 'good');
     logMsg(detail + ' (' + plural(run.calls, 'call') + ' left)', id === 'trim' ? 'gold' : 'info');
@@ -2608,37 +2775,62 @@ input[type=range]::-moz-range-thumb {
 
   /* Built once; only the disabled state, the cooldown wipe and the counter
      change from frame to frame, so the buttons never rebuild under a press. */
+  var crewBuiltAt = -1;
   function buildCrew() {
+    // The bosun moves the numbers in the tooltips, so rebuild when he does.
+    if (state.upgrades.bosun === crewBuiltAt) { buildPips(); return; }
+    crewBuiltAt = state.upgrades.bosun;
     var html = '';
     for (var i = 0; i < CREW.length; i++) {
       var c = CREW[i];
-      html += '<button class="crew-btn" type="button" data-crew="' + c.id + '" title="' + c.hint + '">' +
-                '<span class="crew-key">' + c.key + '</span>' +
-                '<span class="crew-name">' + c.name + '</span>' +
-                '<span class="crew-eff">' + c.eff + '</span>' +
+      var label = c.name + ' (' + c.key + ') — ' + crewEff(c) + '. ' + c.hint;
+      html += '<button class="crew-btn" type="button" data-crew="' + c.id + '"' +
+                ' title="' + label + '" aria-label="' + label + '">' +
+                '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">' + CREW_ICONS[c.id] + '</svg>' +
+                '<span class="crew-key" aria-hidden="true">' + c.key + '</span>' +
                 '<span class="crew-cool" aria-hidden="true"></span>' +
               '</button>';
     }
     el['crew-row'].innerHTML = html;
+    buildPips();
+  }
+
+  /* One pip a call, so the count reads at a glance and still reads once the
+     bosun has pushed it to six. Rebuilt only when the total changes. */
+  var pipCount = -1;
+  function buildPips() {
+    var n = crewCalls();
+    if (n === pipCount) return;
+    pipCount = n;
+    var html = '';
+    for (var i = 0; i < n; i++) html += '<i></i>';
+    el['crew-calls'].innerHTML = html;
   }
 
   function renderCrew() {
+    // Ahead of the visibility check: buying a bosun tier at the dock has to
+    // move the numbers in the tooltips before the next voyage, not after it.
+    buildCrew();
+
     var working = !!run && run.phase === 'working';
     el.crew.hidden = !working;
     if (!working) return;
 
     var ready = crewReady();
-    var wipe = run.crewCd > 0 ? (run.crewCd / CREW_CD) * 100 : 0;
+    var wipe = run.crewCd > 0 ? (run.crewCd / crewWait()) * 100 : 0;
     var btns = el['crew-row'].children;
     for (var i = 0; i < btns.length; i++) {
       btns[i].disabled = !ready;
-      btns[i].lastElementChild.style.width = wipe.toFixed(1) + '%';
+      btns[i].lastElementChild.style.height = wipe.toFixed(1) + '%';
     }
 
-    el['crew-calls'].textContent = run.calls > 0
-      ? plural(run.calls, 'call') + ' left'
-      : 'spent';
-    el['crew-calls'].classList.toggle('is-spent', run.calls <= 0);
+    var pips = el['crew-calls'].children;
+    for (var j = 0; j < pips.length; j++) {
+      pips[j].className = j < run.calls ? '' : 'is-spent';
+    }
+    el['crew-calls'].setAttribute('aria-label',
+      plural(run.calls, 'crew call') + ' left of ' + pips.length);
+    el.crew.classList.toggle('is-spent', run.calls <= 0);
   }
 
   function setHint(text, tone) {
@@ -2713,8 +2905,15 @@ input[type=range]::-moz-range-thumb {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
+  /* The band of water below the surface stops growing once the scene is tall
+     enough. Held at a fraction of the height, extending the stage just bought
+     more empty water under the boat; capped, the extra height goes to sky and
+     the boat keeps sitting where the eye expects it, near the action bar. */
+  function waterDepth() { return Math.min(scene.h * 0.48, 168); }
+
   function surfaceY(x, t, layer) {
-    var base = scene.h * 0.52 + layer * scene.h * 0.10;
+    var d = waterDepth();
+    var base = scene.h - d + layer * d * 0.19;
     return base +
       Math.sin(x * 0.017 + t * 1.5 + layer) * (3.2 + layer) +
       Math.sin(x * 0.037 - t * 2.1 + layer * 2) * (1.8 + layer * 0.6);
@@ -2725,7 +2924,7 @@ input[type=range]::-moz-range-thumb {
     if (!W || !H) return;
 
     // ---- sky ----
-    var sky = ctx.createLinearGradient(0, 0, 0, H * 0.55);
+    var sky = ctx.createLinearGradient(0, 0, 0, H - waterDepth() + 10);
     sky.addColorStop(0, '#050912');
     sky.addColorStop(0.55, '#0a1a2b');
     sky.addColorStop(1, '#12384c');
@@ -2745,7 +2944,7 @@ input[type=range]::-moz-range-thumb {
     ctx.globalAlpha = 1;
 
     // ---- moon ----
-    var mx = W * 0.82, my = H * 0.15;
+    var mx = W * 0.82, my = Math.min(H * 0.15, (H - waterDepth()) * 0.34);
     var glow = ctx.createRadialGradient(mx, my, 2, mx, my, 60);
     glow.addColorStop(0, 'rgba(226,240,255,.35)');
     glow.addColorStop(1, 'rgba(226,240,255,0)');
