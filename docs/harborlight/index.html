@@ -92,7 +92,62 @@ input { font-family: inherit; }
   color: var(--muted);
 }
 
-.topbar-right { display: flex; align-items: center; gap: 14px; }
+/* Wraps rather than overflowing. With standing beside the bank the row is
+   four items plus the stipend button when it is due, which is wider than a
+   360px phone — and a header that pushes the page into a horizontal scroll
+   is worse than one that takes two lines. */
+.topbar-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  min-width: 0;
+}
+
+/* Standing sits beside the bank because they are the two things that decide
+   what the shipyard will sell you. The meter is the rank's own progress, not
+   lifetime experience — what matters at a glance is how close the next rank
+   is, not how far you have come. */
+.standing { line-height: 1.2; min-width: 0; flex: 0 1 112px; }
+
+.standing-label {
+  display: block;
+  font-size: 10px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.standing strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+  /* Ellipsis as a backstop: the ranks are short enough to fit, but a long
+     one must never be what pushes the header into a horizontal scroll. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.standing-track {
+  display: block;
+  margin-top: 4px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.standing-fill {
+  display: block;
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width .4s ease;
+}
 
 .bank { text-align: right; line-height: 1.2; }
 
@@ -766,6 +821,18 @@ input[type=range]::-moz-range-thumb {
 .stage-hud .action-btn { pointer-events: auto; }
 
 @media (max-width: 560px) {
+  .topbar { gap: 10px; padding: 12px clamp(12px, 4vw, 40px); }
+  /* Takes the whole second line rather than being sized to the space left
+     beside the brand on the first — otherwise the row is narrower than its
+     own contents and the mute button drops to a third line. */
+  .topbar-right { gap: 8px 10px; flex: 1 1 100%; }
+  /* The action bar on the water says the same thing in more words — "Set
+     sail", "Call her back", "Sailing home" — so on a phone the pill is a
+     third header row spent on nothing. */
+  .topbar .status-pill { display: none; }
+  .daily-btn { padding: 6px 10px; font-size: 10.5px; }
+  .standing { flex: 0 1 92px; }
+  .standing strong { font-size: 12px; }
   .crew { top: 8px; left: 8px; gap: 6px; padding: 5px 7px 5px 5px; }
   .crew-btn { width: 40px; height: 40px; }
   .stage-hud { padding: 30px 9px 9px; }
@@ -860,6 +927,31 @@ input[type=range]::-moz-range-thumb {
   margin: -4px 0 9px;
   padding-left: 9px;
   border-left: 2px solid rgba(239, 91, 91, .45);
+}
+
+.shipyard-note {
+  margin: 0 0 10px;
+  padding: 9px 11px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--muted);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.shipyard-note b { color: var(--accent); font-weight: 700; }
+
+/* A locked tier still shows its blurb — you should be able to read what you
+   are working toward — but the card steps back and the button states the rank
+   instead of the price. */
+.upgrade.is-locked { opacity: .72; }
+.upgrade.is-locked .upgrade-name { color: var(--muted); }
+
+.upgrade-buy.locked {
+  background: transparent;
+  border: 1px dashed var(--line-strong);
+  color: var(--muted);
+  cursor: default;
 }
 
 .upgrade-buy {
@@ -1137,6 +1229,11 @@ input[type=range]::-moz-range-thumb {
     <span class="brand-text">Harborlight<em>a sailboat venture</em></span>
   </div>
   <div class="topbar-right">
+    <div class="standing" id="standing" title="Standing">
+      <span class="standing-label">Rank</span>
+      <strong id="rank-name">Stranger</strong>
+      <span class="standing-track"><span class="standing-fill" id="rank-fill"></span></span>
+    </div>
     <div class="bank">
       <span class="bank-label">Bank</span>
       <strong id="bank">$0</strong>
@@ -1253,6 +1350,7 @@ input[type=range]::-moz-range-thumb {
       </div>
 
       <div class="tab-body is-active" data-panel="shipyard">
+        <p class="shipyard-note" id="shipyard-note"></p>
         <div id="upgrade-list" class="upgrade-list"></div>
       </div>
 
@@ -1279,7 +1377,9 @@ input[type=range]::-moz-range-thumb {
     <p><strong>Time is the payout.</strong> The longer the boat works, the more the catch is worth. It compounds, so the last ten seconds aboard are always worth more than the first ten.</p>
     <p><strong>Time is also the risk.</strong> Every second carries a chance she goes down, and that chance <em>climbs</em> the longer she stays out. What is in the hold is what you stand to lose.</p>
     <p><strong>Mind the load line.</strong> Watch the weight climb beside the catch. Danger scales with what she is carrying as well as with the clock, and crossing her load line raises the stakes on the spot: the danger jumps, then climbs away from you, seas start coming over the rail and washing catch off the deck, and the salvage locker stops working &mdash; a boat riding that low cannot float anything free, so the deeper she sits the less of the catch is secured, and at double her line none of it is. A larger hold raises the line; nothing else does.</p>
-    <p><strong>Call the crew.</strong> Three buttons stand off in the top corner of the water while she is working, and they are the only things you steer once she is on the grounds. A pip beside them for every call you have left.</p>
+    <p><strong>Earn your standing.</strong> Every five seconds she works is a point of standing, doubled if she comes home. It is the harbor's regard for you, it only ever goes up, and it is what the shipyard checks before it will sell you anything. Money decides how fast you climb; standing decides what you are allowed to climb to &mdash; so one lucky deep run can fill your bank, but it cannot buy you the whole yard at once. Your rank sits in the header, and the Shipyard tab names the next thing it will open.</p>
+    <p><strong>Sign a crew.</strong> You start alone. The boat works herself: the catch builds, the danger climbs, and the only thing you steer is when to call her home. Reach <em>Deckhand</em> and the shipyard will sign four hands aboard, which is what turns the voyage into something you can steer.</p>
+    <p><strong>Call the crew.</strong> Once you have one, three buttons stand off in the top corner of the water while she is working, and they are the only things you steer once she is on the grounds. A pip beside them for every call you have left.</p>
     <ul class="howto-keys">
       <li><span class="howto-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2.5V21"/><path d="M13 4.5c4.2 3 6.4 7.6 6.8 12.5H13z" fill="currentColor" stroke="none"/><path d="M3 7.5h4.5M1.5 12h5M3.5 16.5H8"/></svg></span>
           <span><strong>Work her hard</strong> <em>(key 1)</em> &mdash; a full sail. Nets down and every hand on deck: the catch grows &times;1.7 for eight seconds, and the danger &times;1.9 with it.</span></li>
@@ -1291,7 +1391,7 @@ input[type=range]::-moz-range-thumb {
     <p>Working her hard and heaving to are <em>standing orders</em> &mdash; a new one replaces the one before it rather than piling on top, so pressing the same button twice never doubles anything. Trimming is a one-off and leaves the standing order alone.</p>
     <p>You start with three calls a voyage and five seconds between them. A ship's bosun from the shipyard raises both, and gets a better result out of every order besides. Spending calls beats hoarding them, and spending them at the right moment beats spending them early.</p>
     <p><strong>Call it home.</strong> Recalling stops the catch growing and banks what she has. The sail home is safe &mdash; the decision is the whole game.</p>
-    <p><strong>Spend on the shipyard.</strong> Hulls and storm glasses cut risk, sonar fills the hold faster, a larger hold raises the load line, a ship's bosun gets you more out of the crew, and a salvage locker keeps part of the catch afloat when the worst happens &mdash; as long as she is under her marks when she goes.</p>
+    <p><strong>Spend on the shipyard.</strong> Everything in it costs money <em>and</em> a rank. Hulls and storm glasses cut risk, sonar fills the hold faster, a larger hold raises the load line, a ship's bosun gets you more out of the crew, and a salvage locker keeps part of the catch afloat when the worst happens &mdash; as long as she is under her marks when she goes.</p>
     <p><strong>A stipend a day.</strong> The harbor pays out $100 once every twenty-four hours, waiting in the header whenever it is due. Run out of both provisions and funds and it is your way back.</p>
     <p><strong>Charter new grounds.</strong> Fishing is only the start. Trawling, salvage diving, and night cargo runs each rewrite the risk-and-reward curve &mdash; and a full hold is worth far more out there.</p>
     <p><strong>Listen to her.</strong> A sonar ping marks the time she is working, and it quickens and rises as the odds turn against you &mdash; you can judge the danger with your eyes shut. The speaker button in the header silences everything.</p>
@@ -1422,51 +1522,76 @@ input[type=range]::-moz-range-thumb {
   // (measured by Monte Carlo).
   var HOLD_WEIGHT = [1.00, 0.88, 0.76, 0.64];
 
+  /* `req` is the rank each tier needs, alongside its price. `needs` is a
+     plain dependency: the bosun has nobody to direct until you have signed
+     a crew. */
+  /* `req` is the rank each tier needs, alongside its price. `needs` is a
+     plain dependency: the bosun has nobody to direct until you have signed
+     a crew.
+
+     Ordered by the rank that opens each one, so the list reads top to bottom
+     as what comes next rather than as a wall of locks. */
   var UPGRADES = [
     {
-      id: 'hull', name: 'Reinforced Hull', costs: [350, 1400, 5600],
-      blurb: 'Oak ribs and a copper skin. Cuts the constant background risk of open water.',
-      effect: function (l) { return l ? 'Base risk −' + Math.round(l * 12) + '%' : null; },
-      next: function (l) { return 'Base risk −' + Math.round((l + 1) * 12) + '% total'; }
+      id: 'crew', name: 'Sign a Crew', short: 'a crew', costs: [200], req: [2],
+      blurb: 'Four hands who will sail with you again. Until you have them aboard she works herself: the catch builds, the danger climbs, and the only thing you steer is when to call her home. A crew gives you three calls a voyage — work her hard, heave to, or trim the hold — and something to do while she is on the grounds.',
+      effect: function (l) { return l ? 'Three calls a voyage' : null; },
+      next: function () { return 'Puts a crew aboard'; }
     },
     {
-      id: 'glass', name: 'Storm Glass', costs: [500, 2000, 8000],
-      blurb: 'A barometer and a good chart. Blunts how fast danger climbs the longer you stay out — and puts real numbers on the instrument panel.',
-      effect: function (l) { return l ? 'Risk ramp −' + Math.round(l * 15) + '% · instruments live' : null; },
-      next: function (l) { return 'Risk ramp −' + Math.round((l + 1) * 15) + '% total'; }
-    },
-    {
-      id: 'sonar', name: 'Sonar Array', costs: [300, 1200, 4800],
-      blurb: 'Finds the shoal instead of hunting for it. The catch compounds faster every second — though a fuller hold rides lower, so the risk climbs with it.',
-      effect: function (l) { return l ? 'Haul growth +' + Math.round(l * 10) + '%' : null; },
-      next: function (l) { return 'Haul growth +' + Math.round((l + 1) * 10) + '% total'; }
-    },
-    {
-      id: 'hold', name: 'Larger Hold', costs: [250, 1000, 4000],
+      id: 'hold', name: 'Larger Hold', costs: [250, 1000, 4000], req: [3, 8, 11],
       blurb: 'Room below decks and ballast to match, so a heavy catch rides higher in the water. Raises the load line, which is the only thing that makes a big haul safe to carry.',
 
       effect: function (l) { return 'Load line ' + fmtLb(HOLD_LB / HOLD_WEIGHT[l]); },
       next: function (l) { return 'Load line ' + fmtLb(HOLD_LB / HOLD_WEIGHT[l + 1]); }
     },
     {
-      id: 'insurance', name: 'Salvage Locker', costs: [750, 3000, 12000],
+      id: 'sonar', name: 'Sonar Array', costs: [300, 1200, 4800], req: [4, 9, 11],
+      blurb: 'Finds the shoal instead of hunting for it. The catch compounds faster every second — though a fuller hold rides lower, so the risk climbs with it.',
+      effect: function (l) { return l ? 'Haul growth +' + Math.round(l * 10) + '%' : null; },
+      next: function (l) { return 'Haul growth +' + Math.round((l + 1) * 10) + '% total'; }
+    },
+    {
+      id: 'hull', name: 'Reinforced Hull', costs: [350, 1400, 5600], req: [5, 9, 12],
+      blurb: 'Oak ribs and a copper skin. Cuts the constant background risk of open water.',
+      effect: function (l) { return l ? 'Base risk −' + Math.round(l * 12) + '%' : null; },
+      next: function (l) { return 'Base risk −' + Math.round((l + 1) * 12) + '% total'; }
+    },
+    {
+      id: 'glass', name: 'Storm Glass', costs: [500, 2000, 8000], req: [6, 11, 12],
+      blurb: 'A barometer and a good chart. Blunts how fast danger climbs the longer you stay out — and puts real numbers on the instrument panel.',
+      effect: function (l) { return l ? 'Risk ramp −' + Math.round(l * 15) + '% · instruments live' : null; },
+      next: function (l) { return 'Risk ramp −' + Math.round((l + 1) * 15) + '% total'; }
+    },
+    {
+      id: 'bosun', name: "Ship's Bosun", costs: [500, 1800, 6000], req: [6, 10, 12], needs: 'crew',
+      /* Written against the next tier rather than the current one: at tier 0
+         the two were the same number, so the card read "×1.90 rather than
+         ×1.90". */
+      blurb: function () {
+        var l = state.upgrades.bosun;
+        var head = 'A mate who knows the crew by name and gets an order carried out without being asked twice. Each tier: one more call a voyage, a second less between them, and a better result from every order. ';
+        if (l >= 3) {
+          return head + 'Working her hard costs ×' + hardRisk().toFixed(2) +
+                 ' danger, and a trim sheds ' + Math.round((1 - trimShare()) * 100) + '% of the catch.';
+        }
+        return head + 'The next tier takes working her hard from ×' + hardRisk().toFixed(2) +
+               ' danger to ×' + HARD_RISK[l + 1].toFixed(2) + ', and a trim from ' +
+               Math.round((1 - trimShare()) * 100) + '% of the catch to ' +
+               Math.round((1 - TRIM_SHARE[l + 1]) * 100) + '%.';
+      },
+      effect: function (l) { return l ? (CREW_CALLS + l) + ' calls · ' + (CREW_CD - l) + 's apart · sharper orders' : null; },
+      next: function (l) { return (CREW_CALLS + l + 1) + ' calls a voyage, ' + (CREW_CD - l - 1) + 's apart'; }
+    },
+    {
+      id: 'insurance', name: 'Salvage Locker', costs: [750, 3000, 12000], req: [7, 11, 12],
       blurb: 'A sealed, buoyant hold. Part of the catch floats free when she goes down, so a bad trip is never a total loss. Costs nothing to carry.',
       warn: 'Only floats free while she is under her load line. The share bleeds away the deeper she rides and is gone at double it — an overloaded boat takes the locker down with her.',
       effect: function (l) { return l ? 'Saves ' + Math.round(LOCKER[l] * 100) + '% of the catch' : null; },
       next: function (l) { return 'Saves ' + Math.round(LOCKER[l + 1] * 100) + '% of the catch from a sinking'; }
     },
     {
-      id: 'bosun', name: "Ship's Bosun", costs: [500, 1800, 6000],
-      blurb: function () {
-        return 'A mate who knows the crew by name and gets an order carried out without being asked twice. Each tier: one more call a voyage, a second less between them, and a better result from every order — working her hard costs ×' +
-               hardRisk().toFixed(2) + ' danger rather than ×1.90, and a trim sheds ' +
-               Math.round((1 - trimShare()) * 100) + '% of the catch rather than 25%.';
-      },
-      effect: function (l) { return l ? (CREW_CALLS + l) + ' calls · ' + (CREW_CD - l) + 's apart · sharper orders' : null; },
-      next: function (l) { return (CREW_CALLS + l + 1) + ' calls a voyage, ' + (CREW_CD - l - 1) + 's apart'; }
-    },
-    {
-      id: 'beacon', name: 'Radio Beacon', costs: [2500],
+      id: 'beacon', name: 'Radio Beacon', costs: [2500], req: [11],
       blurb: 'Name a catch value before you launch and the boat turns for home the moment she reaches it — whether or not you are watching.',
       effect: function (l) { return l ? 'Auto-recall armed' : null; },
       next: function () { return 'Unlocks auto-recall at a target catch'; }
@@ -1526,10 +1651,59 @@ input[type=range]::-moz-range-thumb {
   var CREW_CALLS = 3;
   var CREW_CD    = 5;
 
+  /* ---------------- Standing ----------------
+     Money alone used to decide the whole shipyard, which meant one lucky
+     deep run could buy half of it at once and the order you unlocked things
+     in was down to the size of your bank. Standing is the second axis: it
+     only ever goes up, it comes from working the grounds rather than from
+     the catch being worth anything, and every upgrade names a rank as well
+     as a price.
+
+     A voyage pays a point of standing for every five seconds she worked,
+     doubled if she came home — so pushing earns it, sinking still earns
+     some, and a boat that never leaves the dock earns none.
+
+     The thresholds are not guessed. A progression sim (30 runs, money-only
+     pacing, a bot that recalls on the optimal-stopping condition) recorded
+     the rank a player had reached when each purchase first became
+     affordable; the ranks below are set to those medians, so standing and
+     money come due together. Set lower they would be invisible, set higher
+     they would be a second wall in front of a bank you had already filled. */
+  var XP_PER_SEC = 5;    // seconds of work to the point
+
+  var LEVELS = [0, 30, 80, 160, 280, 440, 650, 920, 1250, 1650, 2150, 2800, 3650, 4700];
+
+  var RANKS = [
+    'Stranger', 'Deckhand', 'Boatman', 'Mate', 'Skipper', 'Master', 'Shipowner',
+    'Merchant', 'Trader', 'Fleet Owner', 'Harbormaster', 'Magnate',
+    'Shipping Lord', 'Harbor Legend'
+  ];
+
+  function levelOf(xp) {
+    var l = 1;
+    for (var i = 1; i < LEVELS.length; i++) if (xp >= LEVELS[i]) l = i + 1;
+    return l;
+  }
+
+  function standing()  { return levelOf(state.xp); }
+  function rankName()  { return RANKS[standing() - 1]; }
+  function maxLevel()  { return LEVELS.length; }
+
+  // Where she sits inside the current rank, for the meter in the header.
+  function rankFloor() { return LEVELS[standing() - 1]; }
+  function rankCeil()  { return standing() >= maxLevel() ? null : LEVELS[standing()]; }
+
+  function rankProgress() {
+    var top = rankCeil();
+    if (top === null) return 1;
+    return (state.xp - rankFloor()) / (top - rankFloor());
+  }
+
   /* Ship's Bosun: one more call a voyage per tier, and a second off the wait
      between them. The calls are what you notice; the shorter wait is what
      lets you answer a squall and then trim inside the same ten seconds,
      instead of picking one. */
+  function hasCrew()   { return state.upgrades.crew > 0; }
   function crewCalls() { return CREW_CALLS + state.upgrades.bosun; }
 
   function crewWait()  { return CREW_CD - state.upgrades.bosun; }
@@ -1542,8 +1716,10 @@ input[type=range]::-moz-range-thumb {
      relief. That is what makes the upgrade worth its money: tier-1 fishing
      goes $70.79 / 52.8% home at bosun 0 to $74.69 / 59.5% at bosun 3, which
      is mostly the survival column. Control of a voyage, not a bigger catch. */
-  function hardRisk()  { return [1.90, 1.74, 1.62, 1.52][state.upgrades.bosun]; }
-  function trimShare() { return [0.75, 0.79, 0.82, 0.85][state.upgrades.bosun]; }
+  var HARD_RISK  = [1.90, 1.74, 1.62, 1.52];
+  var TRIM_SHARE = [0.75, 0.79, 0.82, 0.85];
+  function hardRisk()  { return HARD_RISK[state.upgrades.bosun]; }
+  function trimShare() { return TRIM_SHARE[state.upgrades.bosun]; }
 
   /* Drawn rather than labelled: the row sits on the water now, and three
      words apiece would bury the scene. A full sail for speed, an anchor for
@@ -1611,7 +1787,8 @@ input[type=range]::-moz-range-thumb {
   function defaultState() {
     return {
       bank: START_BANK,
-      upgrades: { hull: 0, glass: 0, sonar: 0, hold: 0, insurance: 0, bosun: 0, beacon: 0 },
+      upgrades: { hull: 0, glass: 0, sonar: 0, hold: 0, insurance: 0, crew: 0, bosun: 0, beacon: 0 },
+      xp: 0,
       chartered: { fishing: true },
       selected: 'fishing',
       autoRecall: null,
@@ -1648,6 +1825,8 @@ input[type=range]::-moz-range-thumb {
           s.prov = Math.max(0, Math.floor(num(saved.prov, START_PROV)));
           s.autoRecall = saved.autoRecall != null ? num(saved.autoRecall, null) : null;
           if (Array.isArray(saved.log)) s.log = saved.log.slice(-60);
+          s.xp = Math.max(0, num(saved.xp, 0));
+          if (saved.xp == null) backfillStanding(s, saved);
         }
       }
     } catch (e) { /* corrupt or unavailable storage — start fresh */ }
@@ -1657,6 +1836,32 @@ input[type=range]::-moz-range-thumb {
 
   function save() {
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
+  }
+
+  /* A save written before standing existed. Those voyages happened, so the
+     rank is backfilled from them at the rate the game pays now, and the crew
+     — which that player has been using all along and must not lose — is
+     signed on for free rather than taken away and sold back.
+
+     The old stats do not record how long each trip ran, only the longest, so
+     the backfill uses a flat 15 standing for a landed voyage and 7 for a
+     sinking: roughly a 40-second trip, which is where the bare boat's own
+     optimum sat. It is an estimate, and it is deliberately on the generous
+     side — rounding a returning player down to a rank below the gear they
+     already own would lock them out of their own shipyard. */
+  function backfillStanding(s, saved) {
+    var st = s.stats;
+    if (!st.voyages) return;
+    s.xp = st.recalled * 15 + st.sunk * 7;
+    if (s.upgrades.crew <= 0) s.upgrades.crew = 1;
+    // Never leave fitted gear behind a rank they have not reached.
+    for (var i = 0; i < UPGRADES.length; i++) {
+      var u = UPGRADES[i];
+      var owned = s.upgrades[u.id];
+      if (!owned || !u.req) continue;
+      var need = u.req[Math.min(owned, u.req.length) - 1];
+      while (levelOf(s.xp) < need) s.xp = LEVELS[levelOf(s.xp)];
+    }
   }
 
   function merge(target, src) {
@@ -1829,13 +2034,13 @@ input[type=range]::-moz-range-thumb {
   function $(id) { return document.getElementById(id); }
 
   function cacheDom() {
-    ['bank', 'status-pill', 'voyage-list',
+    ['bank', 'standing', 'rank-name', 'rank-fill', 'status-pill', 'voyage-list',
      'beacon-field', 'auto-recall',
      'cost-summary', 'daily-btn', 'daily-note', 'sea', 'sea-overlay', 'grid', 'store-list',
      'r-time', 'r-mult', 'r-haul', 'r-weight', 'r-value', 'r-locker',
      'risk-fill', 'risk-label', 'risk-note',
      'crew', 'crew-row', 'crew-calls',
-     'action-btn', 'stage-hint', 'upgrade-list', 'log', 'stats', 'reset-btn', 'sound-btn'
+     'action-btn', 'stage-hint', 'upgrade-list', 'shipyard-note', 'log', 'stats', 'reset-btn', 'sound-btn'
     ].forEach(function (id) { el[id] = $(id); });
   }
 
@@ -1942,8 +2147,14 @@ input[type=range]::-moz-range-thumb {
       lines.push('The locker saves <b>' + pct(lockerShare()) + '</b> of the catch if she goes down — ' +
                  'less the deeper she is riding, and nothing at double her line.');
     }
-    lines.push(plural(crewCalls(), 'crew call') + ' a voyage, ' + crewWait() +
-               's apart. Trimming the hold buys the line back.');
+    if (hasCrew()) {
+      lines.push(plural(crewCalls(), 'crew call') + ' a voyage, ' + crewWait() +
+                 's apart. Trimming the hold buys the line back.');
+    } else if (standing() >= 2) {
+      lines.push('No crew aboard — the shipyard will sign one on for ' + fmt(UPGRADES[0].costs[0]) + '.');
+    } else {
+      lines.push('No crew aboard yet. Work the grounds and the harbor will let you sign one.');
+    }
     if (run && run.target) {
       lines.push('Beacon set to bring her home at <b>' + fmt(run.target) + '</b>.');
     }
@@ -1963,7 +2174,43 @@ input[type=range]::-moz-range-thumb {
     }
   }
 
+  /* The shipyard opens entirely locked, which without a word of explanation
+     reads as a wall rather than a ladder. This line names the rank you hold,
+     what the next one opens, and how far off it is. */
+  function renderShipyardNote() {
+    var top = rankCeil();
+    var txt = 'Standing <b>' + standing() + '</b> — ' + rankName() + '. ';
+    if (top === null) {
+      txt += 'Top rank. The whole shipyard is open to you.';
+    } else {
+      var need = Math.ceil(top - state.xp);
+      txt += plural(need, 'more point') + ' to ' + RANKS[standing()] + '. ' +
+             nextUnlock();
+    }
+    el['shipyard-note'].innerHTML = txt;
+  }
+
+  // The nearest thing standing is holding back, named rather than implied.
+  function nextUnlock() {
+    var best = null;
+    for (var i = 0; i < UPGRADES.length; i++) {
+      var u = UPGRADES[i];
+      var tier = state.upgrades[u.id];
+      if (tier >= u.costs.length || !u.req) continue;
+      var want = u.req[tier];
+      if (want <= standing()) continue;
+      if (!best || want < best.want) {
+        var name = typeof u.name === 'function' ? u.name() : u.name;
+        best = { want: want, name: u.costs.length > 1 ? name + ' tier ' + (tier + 1) : name };
+      }
+    }
+    return best
+      ? 'Next out of reach: <b>' + best.name + '</b> at rank ' + best.want + '.'
+      : 'Nothing in the yard is waiting on your standing.';
+  }
+
   function renderUpgrades() {
+    renderShipyardNote();
     var html = '';
     for (var i = 0; i < UPGRADES.length; i++) {
       var u = UPGRADES[i];
@@ -1973,7 +2220,12 @@ input[type=range]::-moz-range-thumb {
       var eff = u.effect(lvl);
       var uname = typeof u.name === 'function' ? u.name() : u.name;
       var ublurb = typeof u.blurb === 'function' ? u.blurb() : u.blurb;
-      html += '<div class="upgrade' + (maxed ? ' is-max' : '') + '">' +
+      var block = maxed ? null : upgradeBlock(u, lvl);
+      /* Dim only what you own none of. A fitted upgrade whose next tier is
+         out of reach is still doing its job on the water, and greying its
+         card out would read as "this is off". */
+      var dim = block && lvl === 0;
+      html += '<div class="upgrade' + (maxed ? ' is-max' : '') + (dim ? ' is-locked' : '') + '">' +
                 '<div class="upgrade-head">' +
                   '<span class="upgrade-name">' + uname + '</span>' +
                   '<span class="upgrade-tier">' + (u.costs.length > 1
@@ -1984,9 +2236,11 @@ input[type=range]::-moz-range-thumb {
                 (u.warn ? '<p class="upgrade-warn">' + u.warn + '</p>' : '') +
                 (maxed
                   ? '<button class="upgrade-buy maxed" disabled>Fully fitted</button>'
-                  : '<button class="upgrade-buy" data-buy="' + u.id + '"' +
-                     (state.bank >= cost ? '' : ' disabled') + '>' +
-                     fmt(cost) + ' — ' + u.next(lvl) + '</button>') +
+                  : block
+                    ? '<button class="upgrade-buy locked" disabled>' + block.text + '</button>'
+                    : '<button class="upgrade-buy" data-buy="' + u.id + '"' +
+                       (state.bank >= cost ? '' : ' disabled') + '>' +
+                       fmt(cost) + ' — ' + u.next(lvl) + '</button>') +
               '</div>';
     }
     el['upgrade-list'].innerHTML = html;
@@ -1994,7 +2248,11 @@ input[type=range]::-moz-range-thumb {
 
   function renderStats() {
     var s = state.stats;
+    var top = rankCeil();
     var rows = [
+      ['Standing', rankName() + ' (rank ' + standing() + ')'],
+      ['Experience', Math.round(state.xp).toLocaleString('en-US') +
+        (top === null ? ' — top rank' : ' / ' + top.toLocaleString('en-US'))],
       ['Voyages sent', s.voyages],
       ['Brought home', s.recalled],
       ['Lost at sea', s.sunk],
@@ -2016,8 +2274,19 @@ input[type=range]::-moz-range-thumb {
     el.stats.innerHTML = html;
   }
 
+  function renderStanding() {
+    var top = rankCeil();
+    el['rank-name'].textContent = rankName();
+    el['rank-fill'].style.width = (rankProgress() * 100).toFixed(1) + '%';
+    el.standing.title = top === null
+      ? rankName() + ' — top rank, ' + Math.round(state.xp).toLocaleString('en-US') + ' standing'
+      : rankName() + ' — ' + Math.round(state.xp).toLocaleString('en-US') + ' of ' +
+        top.toLocaleString('en-US') + ' toward ' + RANKS[standing()];
+  }
+
   function renderAll() {
     el.bank.textContent = fmt(state.bank);
+    renderStanding();
     renderVoyages();
     renderBeacon();
     renderCost();
@@ -2291,6 +2560,9 @@ input[type=range]::-moz-range-thumb {
     noiseBurst({ dur: 0.35, gain: 0.10, filter: 'lowpass', cutoff: 1400, to: 300 });
   }
 
+  // A rank is a bigger moment than a purchase, so it gets a longer figure.
+  function sfxRank() { notes([392, 523, 659, 784, 1047], { type: 'triangle', dur: 0.46, gain: 0.12, step: 0.085 }); }
+
   function sfxUpgrade() { notes([392, 523, 659, 784], { type: 'triangle', dur: 0.28, gain: 0.12, step: 0.055 }); }
   function sfxCharter() { notes([392, 494, 587, 784, 988], { type: 'triangle', dur: 0.4, gain: 0.13, step: 0.09 }); }
 
@@ -2385,7 +2657,7 @@ input[type=range]::-moz-range-thumb {
       survival: 1,
       mods: [],
       nextEvent: 6 + Math.random() * 7,
-      calls: crewCalls(),
+      calls: hasCrew() ? crewCalls() : 0,
       crewCd: 0,
       pingT: 1.2,
       target: state.upgrades.beacon > 0 ? state.autoRecall : null,
@@ -2432,6 +2704,46 @@ input[type=range]::-moz-range-thumb {
       : 'She is sailing home with ' + fmt(aboard(run)) + ' aboard. The trip back is safe.');
   }
 
+  /* Paid off the clock rather than the catch, so a ground worth $4,500 a hold
+     does not also hand out forty times the standing of one worth $90. Coming
+     home doubles it: the push earns the rank, but only a landed trip earns
+     the whole of it. */
+  function awardStanding(seconds, home) {
+    var gain = Math.max(1, Math.ceil(seconds / XP_PER_SEC)) * (home ? 2 : 1);
+    var before = standing();
+    state.xp += gain;
+    var after = standing();
+    if (after > before) {
+      sfxRank();
+      floatMsg(RANKS[after - 1], 'gold');
+      logMsg('Standing: ' + RANKS[after - 1] + ' — rank ' + after + '. ' +
+             unlockedAt(after), 'gold');
+    }
+    return gain;
+  }
+
+  // What the harbor will sell you now that it did not an hour ago.
+  function unlockedAt(level) {
+    var opened = [];
+    for (var i = 0; i < UPGRADES.length; i++) {
+      var u = UPGRADES[i];
+      for (var t = 0; t < u.costs.length; t++) {
+        if (u.req && u.req[t] === level) {
+          var name = typeof u.name === 'function' ? u.name() : u.name;
+          opened.push(u.costs.length > 1 ? name + ' tier ' + (t + 1) : name);
+        }
+      }
+    }
+    return opened.length
+      ? 'The shipyard will now sell you ' + joinList(opened) + '.'
+      : 'Nothing new in the shipyard yet.';
+  }
+
+  function joinList(a) {
+    if (a.length === 1) return a[0];
+    return a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1];
+  }
+
   function settleReturn() {
     var value = round2(aboard(run));
 
@@ -2444,7 +2756,9 @@ input[type=range]::-moz-range-thumb {
 
     sfxCash();
     ambientStop();
-    logMsg('Home after ' + run.t.toFixed(1) + 's with ' + fmt(value) + ' of catch.', 'good');
+    var gained = awardStanding(run.t, true);
+    logMsg('Home after ' + run.t.toFixed(1) + 's with ' + fmt(value) +
+           ' of catch. +' + gained + ' standing.', 'good');
     floatMsg('+' + fmt(value), 'good');
     setHint('Tied up at the dock. ' + fmt(value) + ' of catch sold on the quay.');
 
@@ -2472,6 +2786,7 @@ input[type=range]::-moz-range-thumb {
 
     sfxSink();
     ambientStop();
+    awardStanding(run.t, false);
 
     logMsg('Lost at sea after ' + run.t.toFixed(1) + 's — ' + fmt(lostValue) + ' gone' +
       (refund > 0 ? '. The locker saves ' + fmt(refund) + '.'
@@ -2566,7 +2881,8 @@ input[type=range]::-moz-range-thumb {
   /* ---------------- Calling the crew ---------------- */
 
   function crewReady() {
-    return !!run && run.phase === 'working' && run.crewCd <= 0 && run.calls > 0;
+    return hasCrew() && !!run && run.phase === 'working' &&
+           run.crewCd <= 0 && run.calls > 0;
   }
 
   function callCrew(id) {
@@ -2812,7 +3128,7 @@ input[type=range]::-moz-range-thumb {
     // move the numbers in the tooltips before the next voyage, not after it.
     buildCrew();
 
-    var working = !!run && run.phase === 'working';
+    var working = hasCrew() && !!run && run.phase === 'working';
     el.crew.hidden = !working;
     if (!working) return;
 
@@ -3172,6 +3488,7 @@ input[type=range]::-moz-range-thumb {
       renderTimer = 0;
       dirty = false;
       el.bank.textContent = fmt(state.bank);
+      renderStanding();
       renderVoyages();
       renderBeacon();
       renderCost();
@@ -3188,12 +3505,28 @@ input[type=range]::-moz-range-thumb {
 
   /* ---------------- Purchases ---------------- */
 
+  /* Why a tier cannot be bought yet, or null if it can. One function so the
+     card, the button and the purchase all answer the question the same way. */
+  function upgradeBlock(u, tier) {
+    if (u.needs && state.upgrades[u.needs] <= 0) {
+      var dep = null;
+      for (var i = 0; i < UPGRADES.length; i++) if (UPGRADES[i].id === u.needs) dep = UPGRADES[i];
+      return { kind: 'needs', text: 'Needs ' + (dep && dep.short ? dep.short : u.needs) + ' aboard first' };
+    }
+    var want = u.req ? u.req[tier] : 1;
+    if (standing() < want) {
+      return { kind: 'rank', text: 'Rank ' + want + ' — ' + RANKS[want - 1] };
+    }
+    return null;
+  }
+
   function buyUpgrade(id) {
     var u = null;
     for (var i = 0; i < UPGRADES.length; i++) if (UPGRADES[i].id === id) u = UPGRADES[i];
     if (!u) return;
     var lvl = state.upgrades[id];
     if (lvl >= u.costs.length) return;
+    if (upgradeBlock(u, lvl)) return;
     var cost = u.costs[lvl];
     if (state.bank < cost) return;
 
