@@ -35,6 +35,13 @@
 
 * { box-sizing: border-box; }
 
+/* Any `display` rule beats the hidden attribute's own `display: none`,
+   so an element set to grid or flex stays laid out while hidden. That
+   cost us twice: a closed full-screen sheet silently ate every click
+   on the page, and the ledger showed its signed-in and signed-out
+   panels at the same time. Settle it once, for everything. */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   min-height: 100vh;
@@ -104,6 +111,132 @@ input { font-family: inherit; }
   gap: 10px 14px;
   min-width: 0;
 }
+
+/* ---------- The ledger (accounts) ---------- */
+.account-btn {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--muted);
+  cursor: pointer;
+  transition: color .18s ease, border-color .18s ease, background .18s ease;
+}
+.account-btn svg {
+  width: 18px; height: 18px;
+  fill: none; stroke: currentColor; stroke-width: 1.7;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.account-btn:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+.account-btn.is-in { color: var(--accent); }
+
+/* A dot rather than a word: the header has no room for a sentence, and
+   the sheet says it in full when you open it. */
+.account-dot {
+  position: absolute;
+  right: -2px; bottom: -2px;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  border: 2px solid var(--bg);
+  background: transparent;
+  transition: background .25s ease;
+}
+.account-dot.is-off     { background: transparent; }
+.account-dot.is-local   { background: var(--muted); }
+.account-dot.is-syncing { background: var(--gold); }
+.account-dot.is-synced  { background: var(--good); }
+.account-dot.is-error   { background: var(--danger); }
+
+.sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(3, 6, 10, .72);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.sheet-card {
+  width: 100%;
+  max-width: 380px;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  box-shadow: 0 24px 60px rgba(0,0,0,.55);
+  overflow: hidden;
+}
+
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.sheet-head h2 { margin: 0; font-size: 14px; letter-spacing: .04em; }
+
+.sheet-close {
+  background: none; border: none; cursor: pointer;
+  color: var(--muted); font-size: 22px; line-height: 1; padding: 0 2px;
+}
+.sheet-close:hover { color: var(--text); }
+
+.sheet-body { padding: 16px; display: grid; gap: 10px; }
+.sheet-note { margin: 0 0 2px; font-size: 12px; line-height: 1.55; color: var(--muted); }
+.sheet-who  { margin: 0; font-size: 13px; color: var(--muted); }
+.sheet-who strong { color: var(--text); }
+.sheet-sync { margin: 0; font-size: 11.5px; color: var(--muted); min-height: 16px; }
+.sheet-sync.is-bad { color: var(--danger); }
+
+.sheet-body form { display: grid; gap: 6px; }
+
+.field-label {
+  font-size: 10px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.sheet-body input[type="email"],
+.sheet-body input[type="password"] {
+  width: 100%;
+  padding: 9px 11px;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+}
+.sheet-body input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.sheet-go { margin-top: 8px; }
+
+.sheet-msg { margin: 2px 0 0; font-size: 11.5px; line-height: 1.5; color: var(--accent); }
+.sheet-msg.is-bad { color: var(--danger); }
+
+.sheet-links {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.linky {
+  background: none; border: none; padding: 0;
+  font-size: 11.5px; color: var(--muted);
+  cursor: pointer; text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.linky:hover { color: var(--accent); }
 
 /* Standing sits beside the bank because they are the two things that decide
    what the shipyard will sell you. The meter is the rank's own progress, not
@@ -825,13 +958,16 @@ input[type=range]::-moz-range-thumb {
   /* Takes the whole second line rather than being sized to the space left
      beside the brand on the first — otherwise the row is narrower than its
      own contents and the mute button drops to a third line. */
-  .topbar-right { gap: 8px 10px; flex: 1 1 100%; }
+  .topbar-right { gap: 8px; flex: 1 1 100%; }
+  /* Rank, bank, stipend, account and mute all have to fit one line at
+     360px or the header grows a third row. Measured, not guessed. */
+  .standing { flex: 0 1 84px; }
+  .account-btn, .sound-btn { width: 32px; height: 32px; }
   /* The action bar on the water says the same thing in more words — "Set
      sail", "Call her back", "Sailing home" — so on a phone the pill is a
      third header row spent on nothing. */
   .topbar .status-pill { display: none; }
   .daily-btn { padding: 6px 10px; font-size: 10.5px; }
-  .standing { flex: 0 1 92px; }
   .standing strong { font-size: 12px; }
   .crew { top: 8px; left: 8px; gap: 6px; padding: 5px 7px 5px 5px; }
   .crew-btn { width: 40px; height: 40px; }
@@ -1219,6 +1355,9 @@ input[type=range]::-moz-range-thumb {
   .topbar { padding: 12px 16px; }
 }
 </style>
+<!-- Order matters: cloud.js publishes window.HarborlightCloud, which
+     game.js looks for at boot. Both deferred, so order is preserved. -->
+
 
 </head>
 <body>
@@ -1239,6 +1378,12 @@ input[type=range]::-moz-range-thumb {
       <strong id="bank">$0</strong>
     </div>
     <button class="daily-btn" id="daily-btn" hidden>+ $100 daily</button>
+    <button class="account-btn" id="account-btn" hidden aria-label="Account">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <circle cx="12" cy="8" r="3.6"/><path d="M4.8 20.2c.6-3.9 3.6-6 7.2-6s6.6 2.1 7.2 6"/>
+      </svg>
+      <span class="account-dot" id="account-dot" aria-hidden="true"></span>
+    </button>
     <button class="sound-btn" id="sound-btn" aria-pressed="true" aria-label="Mute sound">&#128266;</button>
     <div class="status-pill" id="status-pill" data-phase="idle">At dock</div>
   </div>
@@ -1370,6 +1515,44 @@ input[type=range]::-moz-range-thumb {
   </section>
 </main>
 
+<!-- The harbor office ledger: accounts, so a save outlives one browser.
+     Hidden entirely when no Supabase project is configured, which is a
+     supported state and not a broken one. -->
+<div class="sheet" id="account-sheet" hidden>
+  <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="account-title">
+    <div class="sheet-head">
+      <h2 id="account-title">The ledger</h2>
+      <button class="sheet-close" id="account-close" aria-label="Close">&times;</button>
+    </div>
+
+    <div class="sheet-body" id="account-out" hidden>
+      <p class="sheet-note">Sign in and your berth, your standing and your gear follow you to any browser. Without an account the game still works &mdash; it just lives in this one.</p>
+      <form id="account-form" autocomplete="on">
+        <label class="field-label" for="account-email">Email</label>
+        <input type="email" id="account-email" name="email" autocomplete="username" required>
+        <label class="field-label" for="account-pass">Password</label>
+        <input type="password" id="account-pass" name="password" autocomplete="current-password" required minlength="6">
+        <p class="sheet-msg" id="account-msg" hidden></p>
+        <button type="submit" class="primary sheet-go" id="account-go">Sign in</button>
+      </form>
+      <div class="sheet-links">
+        <button class="linky" id="account-toggle">Create an account</button>
+        <button class="linky" id="account-forgot">Forgot password</button>
+      </div>
+    </div>
+
+    <div class="sheet-body" id="account-in" hidden>
+      <p class="sheet-who">Signed in as <strong id="account-email-out">&mdash;</strong></p>
+      <p class="sheet-sync" id="account-sync">&mdash;</p>
+      <p class="sheet-msg" id="account-msg-in" hidden></p>
+      <button class="primary sheet-go" id="account-sync-now">Save to my account now</button>
+      <div class="sheet-links">
+        <button class="linky" id="account-signout">Sign out</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <details class="howto">
   <summary>How Harborlight works</summary>
   <div class="howto-body">
@@ -1392,6 +1575,7 @@ input[type=range]::-moz-range-thumb {
     <p>You start with three calls a voyage and five seconds between them. A ship's bosun from the shipyard raises both, and gets a better result out of every order besides. Spending calls beats hoarding them, and spending them at the right moment beats spending them early.</p>
     <p><strong>Call it home.</strong> Recalling stops the catch growing and banks what she has. The sail home is safe &mdash; the decision is the whole game.</p>
     <p><strong>Spend on the shipyard.</strong> Everything in it costs money <em>and</em> a rank. Hulls and storm glasses cut risk, sonar fills the hold faster, a larger hold raises the load line, a ship's bosun gets you more out of the crew, and a salvage locker keeps part of the catch afloat when the worst happens &mdash; as long as she is under her marks when she goes.</p>
+    <p><strong>Keep your berth.</strong> Without an account the game lives in this browser alone &mdash; clear your site data and the harbor forgets you. Sign in from the header and your bank, standing, gear and charters follow you to any browser, saving in the background every few seconds. The dot on the button is green when your account has your progress and red when it could not reach it.</p>
     <p><strong>A stipend a day.</strong> The harbor pays out $100 once every twenty-four hours, waiting in the header whenever it is due. Run out of both provisions and funds and it is your way back.</p>
     <p><strong>Charter new grounds.</strong> Fishing is only the start. Trawling, salvage diving, and night cargo runs each rewrite the risk-and-reward curve &mdash; and a full hold is worth far more out there.</p>
     <p><strong>Listen to her.</strong> A sonar ping marks the time she is working, and it quickens and rises as the odds turn against you &mdash; you can judge the danger with your eyes shut. The speaker button in the header silences everything.</p>
@@ -1403,6 +1587,288 @@ input[type=range]::-moz-range-thumb {
   <span class="copyright">&copy; 2026 David Soard. All rights reserved.</span>
   <span>Progress saves to this browser.</span>
 </footer>
+
+<script>
+/* =========================================================
+   HARBORLIGHT — accounts and cloud saves
+   Copyright (c) 2026 David Soard. All rights reserved.
+   ---------------------------------------------------------
+   The page is static, so there is no server of ours. This talks to a
+   Supabase project over plain HTTPS: its auth endpoints for sign-in
+   and its PostgREST endpoint for the one row that holds your save.
+
+   Written against the REST API by hand rather than pulling in
+   supabase-js, because the whole game is one self-contained page with
+   no dependencies and no build step, and a CDN <script> on a personal
+   domain is a third party who can change what they serve you. The
+   cost is that token refresh is ours to get right; it is the ~30 lines
+   under "Session" below.
+
+   Nothing here is a security boundary. The anon key below is meant to
+   be public; what stops one account reading another's save is Row
+   Level Security in the database, which the page cannot opt out of.
+   See supabase/01-schema.sql.
+   ========================================================= */
+
+(function () {
+  'use strict';
+
+  /* ---------------- Configuration ----------------
+     Fill these in from Project Settings -> API. Leaving them empty is
+     a supported state, not a broken one: the game runs exactly as it
+     always has, saving to this browser only, and the account controls
+     stay hidden. That keeps local development and the file:// case
+     working without a project at all. */
+  var CONFIG = {
+    url: 'https://rpiiileuvibyhisshfyr.supabase.co',
+    // Publishable key. Public by design and meant to ship inside the
+    // page; what keeps one account out of another's save is Row Level
+    // Security, which the page cannot opt out of. The secret key
+    // (sb_secret_… , formerly service_role) bypasses RLS and must never
+    // appear here.
+    key: 'sb_publishable_-2rOd2yp1a59NQjXRzk-ow_RmlYZ5WK'
+  };
+
+  var SESSION_KEY = 'harborlight.session.v1';
+  var ROW_LIMIT   = 'saves';
+
+  var session = null;      // { access_token, refresh_token, expires_at, user }
+  var listeners = [];
+
+  function configured() { return !!(CONFIG.url && CONFIG.key); }
+
+  /* ---------------- Session ---------------- */
+
+  function loadSession() {
+    try {
+      var raw = localStorage.getItem(SESSION_KEY);
+      if (!raw) return null;
+      var s = JSON.parse(raw);
+      if (s && s.access_token && s.refresh_token) return s;
+    } catch (e) { /* unreadable storage — treat as signed out */ }
+    return null;
+  }
+
+  function storeSession(s) {
+    session = s;
+    try {
+      if (s) localStorage.setItem(SESSION_KEY, JSON.stringify(s));
+      else localStorage.removeItem(SESSION_KEY);
+    } catch (e) { /* ignore: a session that cannot persist still works for this tab */ }
+    emit();
+  }
+
+  function fromTokenResponse(body) {
+    // expires_in is seconds from now; store an absolute moment so a
+    // tab left open overnight knows its token is stale on wake.
+    var ttl = (body.expires_in || 3600) * 1000;
+    return {
+      access_token: body.access_token,
+      refresh_token: body.refresh_token,
+      expires_at: Date.now() + ttl,
+      user: body.user ? { id: body.user.id, email: body.user.email } : (session && session.user) || null
+    };
+  }
+
+  // Refresh a minute early rather than waiting for a 401, so an
+  // autosave never fails just because the clock rolled over.
+  function fresh() {
+    if (!session) return Promise.reject(new Error('Not signed in.'));
+    if (session.expires_at - Date.now() > 60000) return Promise.resolve(session);
+    return refresh();
+  }
+
+  /* Single-flight. Supabase rotates the refresh token on every use, so
+     two requests refreshing at once means the second presents a token
+     the first already spent — the server rejects it and the session
+     dies for no reason. Everyone waits on the same promise instead.
+     (Found by running the stand-in with two-second tokens, which turns
+     a rare race into every single sign-in.) */
+  var refreshing = null;
+
+  function refresh() {
+    if (refreshing) return refreshing;
+    refreshing = api('POST', '/auth/v1/token?grant_type=refresh_token',
+                     { refresh_token: session.refresh_token }, { anon: true })
+      .then(function (body) {
+        storeSession(fromTokenResponse(body));
+        return session;
+      })
+      .catch(function (err) {
+        /* Only a refusal ends the session. A refresh that failed
+           because the café wifi dropped is not a reason to throw
+           somebody out of their account — keep the tokens and let the
+           next attempt try again. */
+        if (err.status === 400 || err.status === 401 || err.status === 403) {
+          storeSession(null);
+        }
+        throw err;
+      })
+      .then(function (r) { refreshing = null; return r; },
+            function (e) { refreshing = null; throw e; });
+    return refreshing;
+  }
+
+  /* ---------------- Transport ---------------- */
+
+  function api(method, path, body, opts) {
+    opts = opts || {};
+    if (!configured()) return Promise.reject(new Error('No Supabase project is configured.'));
+
+    /* apikey identifies the project and, on its own, resolves to the
+       anon role. Authorization carries the *user*, so it is sent only
+       when there is a real session.
+
+       The old anon key was a JWT, so sending it as a bearer token
+       worked and most examples still do. The current publishable keys
+       (sb_publishable_…) are not JWTs, so presenting one as a bearer
+       token is presenting something that is not a token. Sending it
+       only as apikey is correct under both schemes, and nothing here
+       needs an anonymous bearer: the auth endpoints authenticate with
+       apikey alone, and every PostgREST call this file makes already
+       refuses to run without a session. */
+    var headers = { 'apikey': CONFIG.key };
+    if (session && !opts.anon) {
+      headers['Authorization'] = 'Bearer ' + session.access_token;
+    }
+    if (body !== undefined && body !== null) headers['Content-Type'] = 'application/json';
+    if (opts.headers) for (var h in opts.headers) headers[h] = opts.headers[h];
+
+    return fetch(CONFIG.url.replace(/\/+$/, '') + path, {
+      method: method,
+      headers: headers,
+      body: body === undefined || body === null ? undefined : JSON.stringify(body)
+    }).then(function (res) {
+      return res.text().then(function (text) {
+        var parsed = null;
+        if (text) { try { parsed = JSON.parse(text); } catch (e) { parsed = { raw: text }; } }
+        if (!res.ok) throw httpError(res.status, parsed);
+        return parsed;
+      });
+    });
+  }
+
+  /* Supabase reports errors under several different keys depending on
+     which service answered. One readable sentence out of any of them,
+     because "[object Object]" in the sign-in box helps nobody. */
+  function httpError(status, body) {
+    var msg = body && (body.msg || body.message || body.error_description ||
+                       body.error || body.hint || body.raw);
+    if (!msg) msg = 'Request failed (' + status + ').';
+    var err = new Error(String(msg));
+    err.status = status;
+    return err;
+  }
+
+  // Signed-in request, refreshing first and retrying once on a 401 —
+  // which covers a token revoked server-side between refreshes.
+  function authed(method, path, body, opts) {
+    return fresh()
+      .then(function () { return api(method, path, body, opts); })
+      .catch(function (err) {
+        if (err.status !== 401 || !session) throw err;
+        return refresh().then(function () { return api(method, path, body, opts); });
+      });
+  }
+
+  /* ---------------- Accounts ---------------- */
+
+  function signUp(email, password) {
+    return api('POST', '/auth/v1/signup', { email: email, password: password }, { anon: true })
+      .then(function (body) {
+        // With email confirmation on, signup returns a user but no
+        // session. That is success, and the caller has to say so
+        // rather than silently appearing to do nothing.
+        if (!body || !body.access_token) return { confirmed: false };
+        storeSession(fromTokenResponse(body));
+        return { confirmed: true };
+      });
+  }
+
+  function signIn(email, password) {
+    return api('POST', '/auth/v1/token?grant_type=password',
+               { email: email, password: password }, { anon: true })
+      .then(function (body) {
+        storeSession(fromTokenResponse(body));
+        return session;
+      });
+  }
+
+  function signOut() {
+    var had = session;
+    storeSession(null);          // locally first, so the UI never lies
+    if (!had) return Promise.resolve();
+    return api('POST', '/auth/v1/logout', {}, {
+      headers: { 'Authorization': 'Bearer ' + had.access_token }
+    }).catch(function () { /* already gone server-side is fine */ });
+  }
+
+  function resetPassword(email, redirectTo) {
+    return api('POST', '/auth/v1/recover',
+               { email: email, redirect_to: redirectTo || location.href }, { anon: true });
+  }
+
+  /* ---------------- The save row ---------------- */
+
+  function pull() {
+    if (!session) return Promise.reject(new Error('Not signed in.'));
+    return authed('GET', '/rest/v1/' + ROW_LIMIT +
+                  '?select=data,rev,updated_at&user_id=eq.' + encodeURIComponent(session.user.id))
+      .then(function (rows) { return (rows && rows[0]) || null; });
+  }
+
+  function push(data, rev) {
+    if (!session) return Promise.reject(new Error('Not signed in.'));
+    return authed('POST', '/rest/v1/' + ROW_LIMIT, {
+      user_id: session.user.id,
+      data: data,
+      rev: rev
+    }, {
+      headers: {
+        // Upsert, and hand back the stored row so the caller learns
+        // the server's updated_at rather than guessing it.
+        'Prefer': 'resolution=merge-duplicates,return=representation'
+      }
+    }).then(function (rows) { return (rows && rows[0]) || null; });
+  }
+
+  function wipe() {
+    if (!session) return Promise.reject(new Error('Not signed in.'));
+    return authed('DELETE', '/rest/v1/' + ROW_LIMIT +
+                  '?user_id=eq.' + encodeURIComponent(session.user.id));
+  }
+
+  /* ---------------- Change notification ---------------- */
+
+  function emit() {
+    for (var i = 0; i < listeners.length; i++) {
+      try { listeners[i](session); } catch (e) { /* a bad listener must not break the rest */ }
+    }
+  }
+
+  function onChange(fn) { listeners.push(fn); fn(session); }
+
+  /* ---------------- Boot ---------------- */
+
+  session = loadSession();
+
+  window.HarborlightCloud = {
+    configured: configured,
+    user: function () { return session ? session.user : null; },
+    onChange: onChange,
+    signUp: signUp,
+    signIn: signIn,
+    signOut: signOut,
+    resetPassword: resetPassword,
+    pull: pull,
+    push: push,
+    wipe: wipe,
+    // Exposed so the page can be pointed at a project without editing
+    // this file — used by the deploy step and by local testing.
+    configure: function (url, key) { CONFIG.url = url || ''; CONFIG.key = key || ''; emit(); }
+  };
+})();
+</script>
 
 <script>
 /* =========================================================
@@ -1458,6 +1924,7 @@ input[type=range]::-moz-range-thumb {
   };
 
   var SAVE_KEY   = 'harborlight.voyage.v1';
+  var REV_KEY    = 'harborlight.rev.v1';
   var START_BANK = 150;
   var DAILY      = 100;
   var DAILY_MS   = 24 * 60 * 60 * 1000;
@@ -1834,8 +2301,136 @@ input[type=range]::-moz-range-thumb {
     return s;
   }
 
+  /* ---------------- Persistence ----------------
+     This browser is always written first and always written whole: it
+     is instant, it works with no account and no network, and it is
+     what the game reads at boot so a voyage never waits on a server.
+     The cloud is a mirror of it, pushed on a timer.
+
+     rev is a counter, not a clock. Two devices racing is decided by
+     who has written more times, because clocks disagree and a phone an
+     hour behind should not be able to clobber a laptop. */
+  var cloudRev = 0;
+  var cloudPending = false;     // local changes not yet pushed
+  var cloudBusy = false;
+  var cloudTimer = 0;
+  var cloudStatus = 'off';      // off | local | syncing | synced | error
+  var cloudNote = '';
+
+  function cloud() {
+    return window.HarborlightCloud && window.HarborlightCloud.configured()
+      ? window.HarborlightCloud : null;
+  }
+  function signedIn() { return !!(cloud() && cloud().user()); }
+
+  function readRev() {
+    try { return Math.max(0, parseInt(localStorage.getItem(REV_KEY), 10) || 0); }
+    catch (e) { return 0; }
+  }
+  function writeRev(v) {
+    cloudRev = v;
+    try { localStorage.setItem(REV_KEY, String(v)); } catch (e) { /* ignore */ }
+  }
+
   function save() {
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
+    /* Marks the change for the next push but deliberately does not
+       touch the dot. The game autosaves every eight seconds, so
+       flipping the indicator to "not yet saved" each time left it grey
+       almost always and told you nothing. The dot answers "is my
+       progress on the account?", and between a successful push and the
+       next one the honest answer is still yes. */
+    if (signedIn()) cloudPending = true;
+  }
+
+  function setCloudStatus(kind, note) {
+    cloudStatus = kind;
+    cloudNote = note || '';
+    renderAccount();
+  }
+
+  /* Pushed on a timer rather than on every save: the game autosaves
+     every eight seconds and on every purchase, and a request per
+     keystroke-equivalent would be rude to a free project and slower
+     than it is useful. A voyage lost to a closed tab costs seconds. */
+  function cloudTick(dt) {
+    if (!signedIn() || !cloudPending || cloudBusy) return;
+    cloudTimer += dt;
+    if (cloudTimer < 12) return;
+    cloudTimer = 0;
+    pushSave();
+  }
+
+  function pushSave() {
+    if (!signedIn() || cloudBusy) return Promise.resolve();
+    cloudBusy = true;
+    cloudPending = false;
+    setCloudStatus('syncing');
+    var rev = cloudRev + 1;
+    return cloud().push(state, rev)
+      .then(function () {
+        writeRev(rev);
+        setCloudStatus('synced');
+      })
+      .catch(function (err) {
+        // Put the change back in the queue; the next tick retries.
+        cloudPending = true;
+        setCloudStatus('error', err.message || 'Could not reach the harbor office.');
+      })
+      .then(function () { cloudBusy = false; });
+  }
+
+  /* Adopt a save that came from the account, replacing what this
+     browser holds. Goes through load()'s own merge so an older blob
+     from another device is migrated exactly as a local one would be. */
+  function adoptRemote(row) {
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(row.data)); } catch (e) { /* ignore */ }
+    writeRev(row.rev || 1);
+    state = load();
+    run = null;
+    pipCount = -1;
+    crewBuiltAt = -1;
+    applyCollapsed();
+    setMuted(state.muted);
+    renderAll();
+    renderLog();
+    dirty = true;
+  }
+
+  function progressOf(st) {
+    return (st && st.stats && st.stats.voyages) || 0;
+  }
+
+  /* Called once whenever a session appears. The rule is deliberately
+     dull: the account wins, because the account is the thing you
+     signed in to reach. The one exception is a browser that is
+     plainly further along than the account — that is someone who
+     played here before making an account, and silently throwing it
+     away would be the worst thing this feature could do. */
+  function syncAfterSignIn() {
+    if (!signedIn()) return Promise.resolve();
+    setCloudStatus('syncing');
+    return cloud().pull().then(function (row) {
+      if (!row) {
+        // Nothing stored yet: this browser's progress becomes the
+        // account's starting point.
+        return pushSave().then(function () {
+          logMsg('Signed in as ' + cloud().user().email + '. This browser\'s progress is now on your account.', 'info');
+        });
+      }
+      var here = progressOf(state);
+      var there = progressOf(row.data);
+      if (here > there && here - there >= 1) {
+        askWhichSave(row, here, there);
+        return;
+      }
+      adoptRemote(row);
+      setCloudStatus('synced');
+      logMsg('Signed in as ' + cloud().user().email + ' — ' +
+             plural(there, 'voyage') + ' restored from your account.', 'info');
+    }).catch(function (err) {
+      setCloudStatus('error', err.message || 'Could not reach the harbor office.');
+    });
   }
 
   /* A save written before standing existed. Those voyages happened, so the
@@ -2040,7 +2635,11 @@ input[type=range]::-moz-range-thumb {
      'r-time', 'r-mult', 'r-haul', 'r-weight', 'r-value', 'r-locker',
      'risk-fill', 'risk-label', 'risk-note',
      'crew', 'crew-row', 'crew-calls',
-     'action-btn', 'stage-hint', 'upgrade-list', 'shipyard-note', 'log', 'stats', 'reset-btn', 'sound-btn'
+     'action-btn', 'stage-hint', 'upgrade-list', 'shipyard-note',
+     'account-btn', 'account-dot', 'account-sheet', 'account-close', 'account-out',
+     'account-in', 'account-form', 'account-email', 'account-pass', 'account-msg',
+     'account-go', 'account-toggle', 'account-forgot', 'account-email-out',
+     'account-sync', 'account-msg-in', 'account-sync-now', 'account-signout', 'log', 'stats', 'reset-btn', 'sound-btn'
     ].forEach(function (id) { el[id] = $(id); });
   }
 
@@ -3149,6 +3748,161 @@ input[type=range]::-moz-range-thumb {
     el.crew.classList.toggle('is-spent', run.calls <= 0);
   }
 
+  /* ---------------- The ledger (accounts) ---------------- */
+
+  var signUpMode = false;
+
+  var CLOUD_LABEL = {
+    off:     '',
+    local:   'Saved here, not yet on your account.',
+    syncing: 'Saving to your account…',
+    synced:  'Saved to your account.',
+    error:   'Could not reach your account.'
+  };
+
+  function renderAccount() {
+    var c = cloud();
+    el['account-btn'].hidden = !c;
+    if (!c) return;
+
+    var user = c.user();
+    el['account-btn'].classList.toggle('is-in', !!user);
+    el['account-btn'].setAttribute('aria-label',
+      user ? 'Account — signed in as ' + user.email : 'Sign in to save across browsers');
+    el['account-dot'].className = 'account-dot is-' + (user ? cloudStatus : 'off');
+
+    el['account-out'].hidden = !!user;
+    el['account-in'].hidden = !user;
+    if (user) {
+      el['account-email-out'].textContent = user.email;
+      el['account-sync'].textContent = cloudNote || CLOUD_LABEL[cloudStatus] || '';
+      el['account-sync'].className = 'sheet-sync' + (cloudStatus === 'error' ? ' is-bad' : '');
+    }
+  }
+
+  function accountMsg(where, text, bad) {
+    var n = el[where];
+    n.hidden = !text;
+    n.textContent = text || '';
+    n.className = 'sheet-msg' + (bad ? ' is-bad' : ' is-good');
+  }
+
+  function openAccount() {
+    if (!cloud()) return;
+    el['account-sheet'].hidden = false;
+    accountMsg('account-msg', '');
+    accountMsg('account-msg-in', '');
+    renderAccount();
+    if (!cloud().user()) setTimeout(function () { el['account-email'].focus(); }, 30);
+  }
+
+  function closeAccount() { el['account-sheet'].hidden = true; }
+
+  function setSignUpMode(on) {
+    signUpMode = on;
+    el['account-go'].textContent = on ? 'Create account' : 'Sign in';
+    el['account-toggle'].textContent = on ? 'I already have an account' : 'Create an account';
+    el['account-pass'].setAttribute('autocomplete', on ? 'new-password' : 'current-password');
+    accountMsg('account-msg', '');
+  }
+
+  function submitAccount(e) {
+    e.preventDefault();
+    var email = el['account-email'].value.trim();
+    var pass = el['account-pass'].value;
+    if (!email || !pass) return;
+    el['account-go'].disabled = true;
+    accountMsg('account-msg', signUpMode ? 'Creating…' : 'Signing in…');
+
+    var work = signUpMode
+      ? cloud().signUp(email, pass).then(function (r) {
+          if (!r.confirmed) {
+            // Mode first: setSignUpMode clears the message box, so
+            // setting the text before it wiped the only thing telling
+            // the player their account was actually made.
+            setSignUpMode(false);
+            accountMsg('account-msg', 'Account made. Check your email for the confirmation link, then sign in.');
+            return null;
+          }
+          return syncAfterSignIn();
+        })
+      : cloud().signIn(email, pass).then(function () { return syncAfterSignIn(); });
+
+    work.then(function (r) {
+      if (r !== null) { el['account-pass'].value = ''; closeAccount(); }
+    }).catch(function (err) {
+      accountMsg('account-msg', err.message || 'That did not work.', true);
+    }).then(function () {
+      el['account-go'].disabled = false;
+      renderAccount();
+    });
+  }
+
+  function bindAccount() {
+    el['account-btn'].addEventListener('click', function () { sfxClick(); openAccount(); });
+    el['account-close'].addEventListener('click', function () { sfxClick(); closeAccount(); });
+    el['account-sheet'].addEventListener('click', function (e) {
+      if (e.target === el['account-sheet']) closeAccount();
+    });
+    el['account-form'].addEventListener('submit', submitAccount);
+    el['account-toggle'].addEventListener('click', function () { setSignUpMode(!signUpMode); });
+
+    el['account-forgot'].addEventListener('click', function () {
+      var email = el['account-email'].value.trim();
+      if (!email) { accountMsg('account-msg', 'Put your email in first.', true); return; }
+      cloud().resetPassword(email)
+        .then(function () { accountMsg('account-msg', 'If that address has an account, a reset link is on its way.'); })
+        .catch(function (err) { accountMsg('account-msg', err.message || 'Could not send that.', true); });
+    });
+
+    el['account-sync-now'].addEventListener('click', function () {
+      el['account-sync-now'].disabled = true;
+      pushSave().then(function () {
+        accountMsg('account-msg-in', cloudStatus === 'error' ? cloudNote : 'Saved.', cloudStatus === 'error');
+        el['account-sync-now'].disabled = false;
+      });
+    });
+
+    el['account-signout'].addEventListener('click', function () {
+      // Push before leaving, so signing out is never how you lose a run.
+      var done = cloudPending ? pushSave() : Promise.resolve();
+      done.then(function () { return cloud().signOut(); })
+          .then(function () {
+            setCloudStatus('off');
+            logMsg('Signed out. This browser keeps its own copy.', 'info');
+            closeAccount();
+            renderAccount();
+          });
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !el['account-sheet'].hidden) closeAccount();
+    });
+  }
+
+  /* Two saves that both have real progress. Never resolved silently:
+     one of them is about to be overwritten and only the player knows
+     which one matters. */
+  function askWhichSave(row, here, there) {
+    var keepLocal = window.confirm(
+      'This browser has ' + plural(here, 'voyage') + ' on it.\n' +
+      'Your account has ' + plural(there, 'voyage') + '.\n\n' +
+      'OK — keep what is in this browser and overwrite the account.\n' +
+      'Cancel — load the account and discard what is in this browser.'
+    );
+    if (keepLocal) {
+      writeRev(row.rev || 1);
+      cloudPending = true;
+      pushSave().then(function () {
+        logMsg('Kept this browser\'s progress and wrote it to your account.', 'info');
+      });
+    } else {
+      adoptRemote(row);
+      setCloudStatus('synced');
+      logMsg('Loaded ' + plural(there, 'voyage') + ' from your account.', 'info');
+    }
+  }
+
   function setHint(text, tone) {
     var h = el['stage-hint'];
     h.textContent = text;
@@ -3500,6 +4254,8 @@ input[type=range]::-moz-range-thumb {
     saveTimer += dt;
     if (saveTimer > 8) { saveTimer = 0; save(); }
 
+    cloudTick(dt);
+
     requestAnimationFrame(frame);
   }
 
@@ -3679,6 +4435,7 @@ input[type=range]::-moz-range-thumb {
 
   function boot() {
     cacheDom();
+    cloudRev = readRev();
     state = load();
     buildCrew();
     initCanvas();
@@ -3687,6 +4444,25 @@ input[type=range]::-moz-range-thumb {
     setMuted(state.muted);
     renderAll();
     renderLog();
+    bindAccount();
+    setSignUpMode(false);
+    /* Subscribed whether or not a project is configured yet, so that
+       pointing the page at one later — from the console, or by a build
+       that injects the keys — still lights the controls up. */
+    if (window.HarborlightCloud) {
+      window.HarborlightCloud.onChange(function () {
+        renderAccount();
+        if (signedIn() && cloudStatus === 'off') syncAfterSignIn();
+      });
+      // A session already in this browser: reconcile before the first
+      // voyage, so nobody plays ten minutes into a save that is about
+      // to be replaced by the account's.
+      if (signedIn()) syncAfterSignIn();
+    }
+    // Last chance to get a pending change up before the tab goes.
+    window.addEventListener('pagehide', function () {
+      if (signedIn() && cloudPending) pushSave();
+    });
     setHint(state.stats.voyages
       ? 'Welcome back. ' + plural(state.stats.voyages, 'voyage') + ' sent, ' +
         state.stats.sunk + ' never came home.'
