@@ -1541,6 +1541,16 @@ input[type=range]::-moz-range-thumb {
       </div>
     </div>
 
+    <div class="sheet-body" id="account-new" hidden>
+      <p class="sheet-note">Set a new password for <strong id="account-new-who">your account</strong>.</p>
+      <form id="account-new-form">
+        <label class="field-label" for="account-new-pass">New password</label>
+        <input type="password" id="account-new-pass" autocomplete="new-password" required minlength="6">
+        <p class="sheet-msg" id="account-new-msg" hidden></p>
+        <button type="submit" class="primary sheet-go" id="account-new-go">Set password</button>
+      </form>
+    </div>
+
     <div class="sheet-body" id="account-in" hidden>
       <p class="sheet-who">Signed in as <strong id="account-email-out">&mdash;</strong></p>
       <p class="sheet-sync" id="account-sync">&mdash;</p>
@@ -1575,7 +1585,7 @@ input[type=range]::-moz-range-thumb {
     <p>You start with three calls a voyage and five seconds between them. A ship's bosun from the shipyard raises both, and gets a better result out of every order besides. Spending calls beats hoarding them, and spending them at the right moment beats spending them early.</p>
     <p><strong>Call it home.</strong> Recalling stops the catch growing and banks what she has. The sail home is safe &mdash; the decision is the whole game.</p>
     <p><strong>Spend on the shipyard.</strong> Everything in it costs money <em>and</em> a rank. Hulls and storm glasses cut risk, sonar fills the hold faster, a larger hold raises the load line, a ship's bosun gets you more out of the crew, and a salvage locker keeps part of the catch afloat when the worst happens &mdash; as long as she is under her marks when she goes.</p>
-    <p><strong>Keep your berth.</strong> Without an account the game lives in this browser alone &mdash; clear your site data and the harbor forgets you. Sign in from the header and your bank, standing, gear and charters follow you to any browser, saving in the background every few seconds. The dot on the button is green when your account has your progress and red when it could not reach it.</p>
+    <p><strong>Keep your berth.</strong> Without an account the game lives in this browser alone &mdash; clear your site data and the harbor forgets you. Sign in from the header and your bank, standing, gear and charters follow you to any browser, saving in the background every few seconds. The dot on the button is green when your account has your progress and red when it could not reach it. Forgotten passwords are handled by email: the link brings you back here with a box to set a new one.</p>
     <p><strong>A stipend a day.</strong> The harbor pays out $100 once every twenty-four hours, waiting in the header whenever it is due. Run out of both provisions and funds and it is your way back.</p>
     <p><strong>Charter new grounds.</strong> Fishing is only the start. Trawling, salvage diving, and night cargo runs each rewrite the risk-and-reward curve &mdash; and a full hold is worth far more out there.</p>
     <p><strong>Listen to her.</strong> A sonar ping marks the time she is working, and it quickens and rises as the odds turn against you &mdash; you can judge the danger with your eyes shut. The speaker button in the header silences everything.</p>
@@ -1805,7 +1815,78 @@ input[type=range]::-moz-range-thumb {
 
   function resetPassword(email, redirectTo) {
     return api('POST', '/auth/v1/recover',
-               { email: email, redirect_to: redirectTo || location.href }, { anon: true });
+               { email: email, redirect_to: redirectTo || linkTarget() }, { anon: true });
+  }
+
+  /* Where a mailed link should land: this page, without whatever hash or
+     query happened to be on it when the mail was asked for. Sending
+     location.href meant the redirect could carry back the fragment of a
+     previous recovery, and Supabase matches redirect_to against an
+     allow-list, so the tidier the URL the likelier it matches. */
+  function linkTarget() {
+    return location.origin + location.pathname;
+  }
+
+  function updatePassword(password) {
+    if (!session) return Promise.reject(new Error('Not signed in.'));
+    return authed('PUT', '/auth/v1/user', { password: password });
+  }
+
+  /* ---------------- Links arriving from email ----------------
+     Supabase sends you back with the session in the URL fragment —
+     #access_token=…&refresh_token=…&type=recovery — or, when something
+     went wrong, #error=…&error_description=…. Nothing read it, so a
+     reset link landed you on the game with a token in the address bar
+     and no way to set a password: the Forgot password button sent real
+     mail to a dead end.
+
+     Returns what the link was for, so the page can respond, and always
+     scrubs the fragment afterwards. An access token sitting in the URL
+     ends up in history, in a screenshot, in whatever you paste the link
+     into. */
+  function consumeAuthLink() {
+    var hash = (location.hash || '').replace(/^#/, '');
+    var query = (location.search || '').replace(/^\?/, '');
+    var raw = hash || query;
+    if (!raw || raw.indexOf('=') === -1) return null;
+
+    var p = {};
+    raw.split('&').forEach(function (pair) {
+      var i = pair.indexOf('=');
+      if (i > 0) p[decodeURIComponent(pair.slice(0, i))] = decodeURIComponent(pair.slice(i + 1).replace(/\+/g, ' '));
+    });
+
+    var scrub = function () {
+      try {
+        history.replaceState(null, '', location.origin + location.pathname);
+      } catch (e) { location.hash = ''; }
+    };
+
+    if (p.error || p.error_description) {
+      scrub();
+      return { kind: 'error', message: p.error_description || p.error };
+    }
+    if (!p.access_token || !p.refresh_token) return null;
+
+    storeSession({
+      access_token: p.access_token,
+      refresh_token: p.refresh_token,
+      expires_at: Date.now() + (parseInt(p.expires_in, 10) || 3600) * 1000,
+      user: null                 // filled in by whoAmI below
+    });
+    scrub();
+    return { kind: p.type || 'session' };
+  }
+
+  // The link gives tokens but no account, so ask who they belong to.
+  function whoAmI() {
+    if (!session) return Promise.reject(new Error('Not signed in.'));
+    if (session.user && session.user.id) return Promise.resolve(session.user);
+    return authed('GET', '/auth/v1/user').then(function (u) {
+      session.user = { id: u.id, email: u.email };
+      storeSession(session);
+      return session.user;
+    });
   }
 
   /* ---------------- The save row ---------------- */
@@ -1860,6 +1941,9 @@ input[type=range]::-moz-range-thumb {
     signIn: signIn,
     signOut: signOut,
     resetPassword: resetPassword,
+    updatePassword: updatePassword,
+    consumeAuthLink: consumeAuthLink,
+    whoAmI: whoAmI,
     pull: pull,
     push: push,
     wipe: wipe,
@@ -2639,7 +2723,9 @@ input[type=range]::-moz-range-thumb {
      'account-btn', 'account-dot', 'account-sheet', 'account-close', 'account-out',
      'account-in', 'account-form', 'account-email', 'account-pass', 'account-msg',
      'account-go', 'account-toggle', 'account-forgot', 'account-email-out',
-     'account-sync', 'account-msg-in', 'account-sync-now', 'account-signout', 'log', 'stats', 'reset-btn', 'sound-btn'
+     'account-sync', 'account-msg-in', 'account-sync-now', 'account-signout',
+     'account-new', 'account-new-form', 'account-new-pass', 'account-new-msg',
+     'account-new-go', 'account-new-who', 'log', 'stats', 'reset-btn', 'sound-btn'
     ].forEach(function (id) { el[id] = $(id); });
   }
 
@@ -3751,6 +3837,7 @@ input[type=range]::-moz-range-thumb {
   /* ---------------- The ledger (accounts) ---------------- */
 
   var signUpMode = false;
+  var resetting = false;      // arrived here from a password-reset link
 
   var CLOUD_LABEL = {
     off:     '',
@@ -3771,8 +3858,10 @@ input[type=range]::-moz-range-thumb {
       user ? 'Account — signed in as ' + user.email : 'Sign in to save across browsers');
     el['account-dot'].className = 'account-dot is-' + (user ? cloudStatus : 'off');
 
-    el['account-out'].hidden = !!user;
-    el['account-in'].hidden = !user;
+    el['account-out'].hidden = !!user || resetting;
+    el['account-in'].hidden = !user || resetting;
+    el['account-new'].hidden = !resetting;
+    if (resetting && user) el['account-new-who'].textContent = user.email;
     if (user) {
       el['account-email-out'].textContent = user.email;
       el['account-sync'].textContent = cloudNote || CLOUD_LABEL[cloudStatus] || '';
@@ -3796,7 +3885,12 @@ input[type=range]::-moz-range-thumb {
     if (!cloud().user()) setTimeout(function () { el['account-email'].focus(); }, 30);
   }
 
-  function closeAccount() { el['account-sheet'].hidden = true; }
+  function closeAccount() {
+    // Closing mid-reset would leave a signed-in session with the old
+    // password still unusable and no way back to the form.
+    if (resetting) { resetting = false; renderAccount(); }
+    el['account-sheet'].hidden = true;
+  }
 
   function setSignUpMode(on) {
     signUpMode = on;
@@ -3838,7 +3932,62 @@ input[type=range]::-moz-range-thumb {
     });
   }
 
+  /* A link from an email hands the page a session in its URL. Run before
+     anything else touches the cloud, so a recovery link cannot be
+     mistaken for an ordinary signed-in start and quietly sync a save
+     over somebody mid-reset. */
+  var linkHandled = false;
+  function handleAuthLink() {
+    // Runs at boot and again if a project is configured after it, so a
+    // mailed link is never dropped just because the keys arrived a
+    // moment late. Once only — the fragment is consumed the first time.
+    if (linkHandled || !cloud()) return;
+    linkHandled = true;
+    var link = cloud().consumeAuthLink();
+    if (!link) return;
+
+    if (link.kind === 'error') {
+      openAccount();
+      accountMsg('account-msg', link.message || 'That link did not work. Ask for a new one.', true);
+      return;
+    }
+
+    cloud().whoAmI().then(function () {
+      if (link.kind === 'recovery') {
+        resetting = true;
+        openAccount();
+        renderAccount();
+        setTimeout(function () { el['account-new-pass'].focus(); }, 30);
+      } else {
+        // A confirmation link: they are simply signed in now.
+        logMsg('Email confirmed — signed in as ' + cloud().user().email + '.', 'info');
+        syncAfterSignIn();
+      }
+    }).catch(function (err) {
+      openAccount();
+      accountMsg('account-msg', err.message || 'That link has expired. Ask for a new one.', true);
+    });
+  }
+
   function bindAccount() {
+    el['account-new-form'].addEventListener('submit', function (e) {
+      e.preventDefault();
+      var pw = el['account-new-pass'].value;
+      if (!pw) return;
+      el['account-new-go'].disabled = true;
+      accountMsg('account-new-msg', 'Setting…');
+      cloud().updatePassword(pw).then(function () {
+        resetting = false;
+        el['account-new-pass'].value = '';
+        renderAccount();
+        accountMsg('account-msg-in', 'Password set.');
+        logMsg('Password changed.', 'info');
+        return syncAfterSignIn();
+      }).catch(function (err) {
+        accountMsg('account-new-msg', err.message || 'Could not set that password.', true);
+      }).then(function () { el['account-new-go'].disabled = false; });
+    });
+
     el['account-btn'].addEventListener('click', function () { sfxClick(); openAccount(); });
     el['account-close'].addEventListener('click', function () { sfxClick(); closeAccount(); });
     el['account-sheet'].addEventListener('click', function (e) {
@@ -4449,10 +4598,12 @@ input[type=range]::-moz-range-thumb {
     /* Subscribed whether or not a project is configured yet, so that
        pointing the page at one later — from the console, or by a build
        that injects the keys — still lights the controls up. */
+    handleAuthLink();
     if (window.HarborlightCloud) {
       window.HarborlightCloud.onChange(function () {
+        handleAuthLink();
         renderAccount();
-        if (signedIn() && cloudStatus === 'off') syncAfterSignIn();
+        if (signedIn() && cloudStatus === 'off' && !resetting) syncAfterSignIn();
       });
       // A session already in this browser: reconcile before the first
       // voyage, so nobody plays ten minutes into a save that is about
