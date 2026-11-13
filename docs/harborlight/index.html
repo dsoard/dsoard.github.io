@@ -2090,32 +2090,32 @@ input[type=range]::-moz-range-thumb {
       next: function () { return 'Puts a crew aboard'; }
     },
     {
-      id: 'hold', name: 'Larger Hold', costs: [250, 1000, 4000], req: [3, 8, 11],
+      id: 'hold', name: 'Larger Hold', costs: [250, 1000, 4000], req: [3, 8, 12],
       blurb: 'Room below decks and ballast to match, so a heavy catch rides higher in the water. Raises the load line, which is the only thing that makes a big haul safe to carry.',
 
       effect: function (l) { return 'Load line ' + fmtLb(HOLD_LB / HOLD_WEIGHT[l]); },
       next: function (l) { return 'Load line ' + fmtLb(HOLD_LB / HOLD_WEIGHT[l + 1]); }
     },
     {
-      id: 'sonar', name: 'Sonar Array', costs: [300, 1200, 4800], req: [4, 9, 11],
+      id: 'sonar', name: 'Sonar Array', costs: [300, 1200, 4800], req: [4, 9, 12],
       blurb: 'Finds the shoal instead of hunting for it. The catch compounds faster every second — though a fuller hold rides lower, so the risk climbs with it.',
       effect: function (l) { return l ? 'Haul growth +' + Math.round(l * 10) + '%' : null; },
       next: function (l) { return 'Haul growth +' + Math.round((l + 1) * 10) + '% total'; }
     },
     {
-      id: 'hull', name: 'Reinforced Hull', costs: [350, 1400, 5600], req: [5, 9, 12],
+      id: 'hull', name: 'Reinforced Hull', costs: [350, 1400, 5600], req: [5, 9, 13],
       blurb: 'Oak ribs and a copper skin. Cuts the constant background risk of open water.',
       effect: function (l) { return l ? 'Base risk −' + Math.round(l * 12) + '%' : null; },
       next: function (l) { return 'Base risk −' + Math.round((l + 1) * 12) + '% total'; }
     },
     {
-      id: 'glass', name: 'Storm Glass', costs: [500, 2000, 8000], req: [6, 11, 12],
+      id: 'glass', name: 'Storm Glass', costs: [500, 2000, 8000], req: [6, 11, 14],
       blurb: 'A barometer and a good chart. Blunts how fast danger climbs the longer you stay out — and puts real numbers on the instrument panel.',
       effect: function (l) { return l ? 'Risk ramp −' + Math.round(l * 15) + '% · instruments live' : null; },
       next: function (l) { return 'Risk ramp −' + Math.round((l + 1) * 15) + '% total'; }
     },
     {
-      id: 'bosun', name: "Ship's Bosun", costs: [500, 1800, 6000], req: [6, 10, 12], needs: 'crew',
+      id: 'bosun', name: "Ship's Bosun", costs: [500, 1800, 6000], req: [6, 10, 13], needs: 'crew',
       /* Written against the next tier rather than the current one: at tier 0
          the two were the same number, so the card read "×1.90 rather than
          ×1.90". */
@@ -2135,7 +2135,7 @@ input[type=range]::-moz-range-thumb {
       next: function (l) { return (CREW_CALLS + l + 1) + ' calls a voyage, ' + (CREW_CD - l - 1) + 's apart'; }
     },
     {
-      id: 'insurance', name: 'Salvage Locker', costs: [750, 3000, 12000], req: [7, 11, 12],
+      id: 'insurance', name: 'Salvage Locker', costs: [750, 3000, 12000], req: [7, 11, 14],
       blurb: 'A sealed, buoyant hold. Part of the catch floats free when she goes down, so a bad trip is never a total loss. Costs nothing to carry.',
       warn: 'Only floats free while she is under her load line. The share bleeds away the deeper she rides and is gone at double it — an overloaded boat takes the locker down with her.',
       effect: function (l) { return l ? 'Saves ' + Math.round(LOCKER[l] * 100) + '% of the catch' : null; },
@@ -2222,7 +2222,30 @@ input[type=range]::-moz-range-thumb {
      they would be a second wall in front of a bank you had already filled. */
   var XP_PER_SEC = 5;    // seconds of work to the point
 
-  var LEVELS = [0, 30, 80, 160, 280, 440, 650, 920, 1250, 1650, 2150, 2800, 3650, 4700];
+  var LEVELS = [0, 50, 150, 310, 540, 840, 1220, 1650, 2130, 2670, 3290, 4040, 4970, 6070];
+
+  /* The ladder was re-cut once. The early ranks were arriving inside the
+     first half hour — every tier-1 upgrade unlocked by minute 37 — which
+     emptied the shipyard before the player had settled into the game. The
+     climb to Shipowner now takes about twice as long; the top of the ladder
+     only about a third longer, so the slowdown sits where it was wanted.
+
+     Raising thresholds would demote every save that already existed, so an
+     old one is carried across: same rank, same position inside it. */
+  var CURVE_VER = 2;
+  var LEVELS_V1 = [0, 30, 80, 160, 280, 440, 650, 920, 1250, 1650, 2150, 2800, 3650, 4700];
+
+  function remapStanding(xp) {
+    var l = 1, i;
+    for (i = 1; i < LEVELS_V1.length; i++) if (xp >= LEVELS_V1[i]) l = i + 1;
+    /* At the top of the old ladder there is no band to sit inside, so the
+       surplus carries over whole and a Legend stays a Legend. */
+    if (l >= LEVELS_V1.length) {
+      return LEVELS[LEVELS.length - 1] + (xp - LEVELS_V1[LEVELS_V1.length - 1]);
+    }
+    var frac = (xp - LEVELS_V1[l - 1]) / (LEVELS_V1[l] - LEVELS_V1[l - 1]);
+    return Math.round(LEVELS[l - 1] + frac * (LEVELS[l] - LEVELS[l - 1]));
+  }
 
   var RANKS = [
     'Stranger', 'Deckhand', 'Boatman', 'Mate', 'Skipper', 'Master', 'Shipowner',
@@ -2340,6 +2363,7 @@ input[type=range]::-moz-range-thumb {
       bank: START_BANK,
       upgrades: { hull: 0, glass: 0, sonar: 0, hold: 0, insurance: 0, crew: 0, bosun: 0, beacon: 0 },
       xp: 0,
+      curve: CURVE_VER,   // which standing ladder this save's xp is on
       chartered: { fishing: true },
       selected: 'fishing',
       autoRecall: null,
@@ -2378,6 +2402,7 @@ input[type=range]::-moz-range-thumb {
           if (Array.isArray(saved.log)) s.log = saved.log.slice(-60);
           s.xp = Math.max(0, num(saved.xp, 0));
           if (saved.xp == null) backfillStanding(s, saved);
+          else if (num(saved.curve, 1) < CURVE_VER) s.xp = remapStanding(s.xp);
         }
       }
     } catch (e) { /* corrupt or unavailable storage — start fresh */ }
