@@ -207,7 +207,8 @@ input { font-family: inherit; }
 }
 
 .sheet-body input[type="email"],
-.sheet-body input[type="password"] {
+.sheet-body input[type="password"],
+.sheet-body input[type="text"] {
   width: 100%;
   padding: 9px 11px;
   font-size: 13px;
@@ -1354,6 +1355,108 @@ input[type=range]::-moz-range-thumb {
   .bank strong { font-size: 19px; }
   .topbar { padding: 12px 16px; }
 }
+
+
+/* ---------------- The harbor register ---------------- */
+
+.register-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+}
+.register-btn:hover { color: var(--text); border-color: var(--muted); }
+.register-btn svg {
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+
+.board { margin: 0 0 1.1rem; }
+
+.board-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Four columns: position, name, rank, standing. The name takes the
+   slack so a long one truncates instead of shoving the score off the
+   edge, which is what a table layout would do here. */
+.board-row {
+  display: grid;
+  grid-template-columns: 1.9rem minmax(0, 1fr) auto auto;
+  gap: 0.6rem;
+  align-items: baseline;
+  padding: 0.42rem 0.5rem;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.95rem;
+}
+.board-row:last-child { border-bottom: 0; }
+
+.board-pos {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.board-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.board-rank {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+.board-xp {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--gold);
+}
+
+/* Your own row, so you can find yourself without reading every name. */
+.board-row.is-me {
+  background: var(--surface-2);
+  border-radius: 7px;
+}
+.board-row.is-me .board-name { color: var(--gold); }
+
+/* Pinned under the board when you are below the last visible place.
+   The dashed rule says "there is a gap here" without pretending to
+   know how big it is. */
+.board-you {
+  margin-top: 0;
+  border-top: 1px dashed var(--line-strong);
+  padding-top: 0.2rem;
+}
+.board-you .board-row { border-bottom: 0; }
+
+.board-empty,
+.board-hint {
+  margin: 0.3rem 0 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.board-join { margin-top: 0.4rem; }
+
+/* The rank title is the first thing to go when there is no room for it;
+   the position, the name and the score are the board. */
+@media (max-width: 460px) {
+  .board-row { grid-template-columns: 1.6rem minmax(0, 1fr) auto; }
+  .board-rank { display: none; }
+}
 </style>
 <!-- Order matters: cloud.js publishes window.HarborlightCloud, which
      game.js looks for at boot. Both deferred, so order is preserved. -->
@@ -1378,6 +1481,11 @@ input[type=range]::-moz-range-thumb {
       <strong id="bank">$0</strong>
     </div>
     <button class="daily-btn" id="daily-btn" hidden>+ $100 daily</button>
+    <button class="register-btn" id="register-btn" aria-label="Harbor register">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M4 20V9m0 11h16M8 20V5m0 15h4m4 0v-8"/>
+      </svg>
+    </button>
     <button class="account-btn" id="account-btn" hidden aria-label="Account">
       <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
         <circle cx="12" cy="8" r="3.6"/><path d="M4.8 20.2c.6-3.9 3.6-6 7.2-6s6.6 2.1 7.2 6"/>
@@ -1563,6 +1671,43 @@ input[type=range]::-moz-range-thumb {
   </div>
 </div>
 
+<div class="sheet" id="register-sheet" hidden>
+  <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="register-title">
+    <div class="sheet-head">
+      <h2 id="register-title">The harbor register</h2>
+      <button class="sheet-close" id="register-close" aria-label="Close">&times;</button>
+    </div>
+
+    <div class="sheet-body">
+      <p class="sheet-note">Standing, highest first. Anyone can read the register &mdash; you need an account only to put your own name on it.</p>
+
+      <div class="board" id="board-out">
+        <p class="board-empty" id="board-empty" hidden>Nobody is on the register yet.</p>
+        <ol class="board-list" id="board-list"></ol>
+        <ol class="board-list board-you" id="board-you" hidden></ol>
+        <p class="sheet-msg" id="board-msg" hidden></p>
+      </div>
+
+      <div class="board-join" id="board-anon" hidden>
+        <p class="sheet-note">Sign in from the ledger to join the register.</p>
+      </div>
+
+      <form class="board-join" id="board-form" hidden>
+        <label class="field-label" for="board-name">Your name in the harbor</label>
+        <input type="text" id="board-name" maxlength="20" minlength="3" autocomplete="nickname"
+               placeholder="Gull" required>
+        <p class="board-hint">3 to 20 characters. Everyone can see it, so do not use your email.</p>
+        <p class="sheet-msg" id="board-form-msg" hidden></p>
+        <button type="submit" class="primary sheet-go" id="board-go">Join the register</button>
+      </form>
+
+      <div class="sheet-links" id="board-mine" hidden>
+        <button class="linky" id="board-leave">Take my name off the register</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <details class="howto">
   <summary>How Harborlight works</summary>
   <div class="howto-body">
@@ -1584,6 +1729,7 @@ input[type=range]::-moz-range-thumb {
     <p>Working her hard and heaving to are <em>standing orders</em> &mdash; a new one replaces the one before it rather than piling on top, so pressing the same button twice never doubles anything. Trimming is a one-off and leaves the standing order alone.</p>
     <p>You start with three calls a voyage and five seconds between them. A ship's bosun from the shipyard raises both, and gets a better result out of every order besides. Spending calls beats hoarding them, and spending them at the right moment beats spending them early.</p>
     <p><strong>Call it home.</strong> Recalling stops the catch growing and banks what she has. The sail home is safe &mdash; the decision is the whole game.</p>
+    <p><strong>Put your name up if you like.</strong> The harbor register ranks skippers by standing, and the button in the header opens it. Reading it needs nothing; appearing on it needs an account and a name you choose, and you can take your name off again whenever you want. Your standing is posted when a voyage ends &mdash; nothing else about you is, and the name is the only thing other people see, so do not make it your email address.</p>
     <p><strong>Spend on the shipyard.</strong> Everything in it costs money <em>and</em> a rank. Hulls and storm glasses cut risk, sonar fills the hold faster, a larger hold raises the load line, a ship's bosun gets you more out of the crew, and a salvage locker keeps part of the catch afloat when the worst happens &mdash; as long as she is under her marks when she goes.</p>
     <p><strong>Keep your berth.</strong> Without an account the game lives in this browser alone &mdash; clear your site data and the harbor forgets you. Sign in from the header and your bank, standing, gear and charters follow you to any browser, saving in the background every few seconds. The dot on the button is green when your account has your progress and red when it could not reach it. Forgotten passwords are handled by email: the link brings you back here with a box to set a new one.</p>
     <p><strong>A stipend a day.</strong> The harbor pays out $100 once every twenty-four hours, waiting in the header whenever it is due. Run out of both provisions and funds and it is your way back.</p>
@@ -1767,6 +1913,12 @@ input[type=range]::-moz-range-thumb {
     if (!msg) msg = 'Request failed (' + status + ').';
     var err = new Error(String(msg));
     err.status = status;
+    /* Keep the parsed body on the error. PostgREST reports WHICH
+       constraint a write broke in body.code and body.message, and a
+       caller that can read those can say "that name is taken" instead
+       of reciting "duplicate key value violates unique constraint" at
+       a player. Nothing displays this directly. */
+    err.body = body;
     return err;
   }
 
@@ -1919,6 +2071,83 @@ input[type=range]::-moz-range-thumb {
                   '?user_id=eq.' + encodeURIComponent(session.user.id));
   }
 
+  /* ---------------- The harbor register ---------------- */
+
+  var BOARD = 'scores';
+
+  /* Never ask for user_id. The anonymous role is deliberately not
+     granted that column, so a query that omits it is the SAME query
+     signed in and signed out -- one code path, and a board a visitor
+     can read without an account. Names are unique, so the game finds
+     its own row by the name it chose rather than by id. */
+  var BOARD_COLS = 'display_name,xp,voyages,recalled,sunk,longest_trip,updated_at';
+
+  function board(limit) {
+    return api('GET', '/rest/v1/' + BOARD + '?select=' + BOARD_COLS +
+               '&order=xp.desc&limit=' + (limit > 0 ? limit : 25))
+      .then(function (rows) { return rows || []; });
+  }
+
+  /* Postgres speaks in five-character codes. The player should not. */
+  function registerError(err) {
+    var code = err && err.body && err.body.code;
+    if (code === '23505') {
+      return new Error('That name is already on the register. Try another.');
+    }
+    if (code === '23514') {
+      /* Either the name failed its shape check or the standing failed
+         its plausibility check. The constraint name says which, and the
+         difference matters: one is the player's typing, the other means
+         the save itself is inconsistent. */
+      var which = (err.body.message || '') + (err.body.details || '');
+      if (which.indexOf('scores_name_shape') >= 0) {
+        return new Error('That name will not do: 3 to 20 letters, digits, ' +
+                         'spaces, hyphens or apostrophes.');
+      }
+      return new Error('The harbor will not vouch for that standing. ' +
+                       'If this keeps happening your save may be inconsistent.');
+    }
+    return err;
+  }
+
+  function pushScore(s) {
+    if (!session) return Promise.reject(new Error('Not signed in.'));
+    return authed('POST', '/rest/v1/' + BOARD, {
+      user_id: session.user.id,
+      display_name: s.name,
+      xp: s.xp,
+      voyages: s.voyages,
+      recalled: s.recalled,
+      sunk: s.sunk,
+      longest_trip: s.longest
+    }, {
+      headers: { 'Prefer': 'resolution=merge-duplicates,return=representation' }
+    }).then(function (rows) { return (rows && rows[0]) || null; })
+      .catch(function (err) { throw registerError(err); });
+  }
+
+  /* Where a player sits when they are not on the visible board.
+     A database function rather than PostgREST's Content-Range count,
+     because that header is only readable cross-origin when the server
+     also sends Access-Control-Expose-Headers -- a detail that cannot be
+     verified without deploying, and this returns a plain number with no
+     such question attached. Ties share a position. */
+  function myPosition(xp) {
+    return api('POST', '/rest/v1/rpc/register_position', { p_xp: xp })
+      .then(function (n) {
+        var pos = typeof n === 'number' ? n : parseInt(n, 10);
+        return isFinite(pos) && pos > 0 ? pos : null;
+      });
+  }
+
+  /* Leaving is the other half of opting in: the row goes, and with it
+     the name, which somebody else may then take. */
+  function leaveBoard() {
+    if (!session) return Promise.reject(new Error('Not signed in.'));
+    return authed('DELETE', '/rest/v1/' + BOARD +
+                  '?user_id=eq.' + encodeURIComponent(session.user.id));
+  }
+
   /* ---------------- Change notification ---------------- */
 
   function emit() {
@@ -1947,6 +2176,10 @@ input[type=range]::-moz-range-thumb {
     pull: pull,
     push: push,
     wipe: wipe,
+    board: board,
+    myPosition: myPosition,
+    pushScore: pushScore,
+    leaveBoard: leaveBoard,
     // Exposed so the page can be pointed at a project without editing
     // this file — used by the deploy step and by local testing.
     configure: function (url, key) { CONFIG.url = url || ''; CONFIG.key = key || ''; emit(); }
@@ -2364,6 +2597,10 @@ input[type=range]::-moz-range-thumb {
       upgrades: { hull: 0, glass: 0, sonar: 0, hold: 0, insurance: 0, crew: 0, bosun: 0, beacon: 0 },
       xp: 0,
       curve: CURVE_VER,   // which standing ladder this save's xp is on
+      // The name on the harbor register, '' when not on it. Kept in the
+      // save so it follows the player to another browser along with
+      // everything else.
+      harborName: '',
       chartered: { fishing: true },
       selected: 'fishing',
       autoRecall: null,
@@ -2400,6 +2637,7 @@ input[type=range]::-moz-range-thumb {
           s.prov = Math.max(0, Math.floor(num(saved.prov, START_PROV)));
           s.autoRecall = saved.autoRecall != null ? num(saved.autoRecall, null) : null;
           if (Array.isArray(saved.log)) s.log = saved.log.slice(-60);
+          s.harborName = typeof saved.harborName === 'string' ? saved.harborName : '';
           s.xp = Math.max(0, num(saved.xp, 0));
           if (saved.xp == null) backfillStanding(s, saved);
           else if (num(saved.curve, 1) < CURVE_VER) s.xp = remapStanding(s.xp);
@@ -2463,11 +2701,49 @@ input[type=range]::-moz-range-thumb {
      keystroke-equivalent would be rude to a free project and slower
      than it is useful. A voyage lost to a closed tab costs seconds. */
   function cloudTick(dt) {
-    if (!signedIn() || !cloudPending || cloudBusy) return;
+    if (!signedIn()) return;
+    if (!cloudPending && !scorePending) return;
     cloudTimer += dt;
     if (cloudTimer < 12) return;
     cloudTimer = 0;
-    pushSave();
+    if (cloudPending && !cloudBusy) pushSave();
+    if (scorePending && !scoreBusy) pushScore();
+  }
+
+  /* ---------------- The harbor register ---------------- */
+
+  var scorePending = false;
+  var scoreBusy = false;
+
+  /* Read live at push time rather than captured when the voyage ended.
+     That is what keeps the figures self-consistent: the database checks
+     standing against these counts, and a snapshot taken mid-settlement
+     could post standing the voyage count did not yet justify. */
+  function scoreFields() {
+    var st = state.stats;
+    return {
+      name: state.harborName,
+      xp: state.xp,
+      voyages: st.voyages,
+      recalled: st.recalled,
+      sunk: st.sunk,
+      longest: Math.round(st.longestTrip * 10) / 10
+    };
+  }
+
+  function pushScore() {
+    if (!signedIn() || !state.harborName || scoreBusy) return Promise.resolve();
+    scoreBusy = true;
+    scorePending = false;
+    return cloud().pushScore(scoreFields())
+      .catch(function () {
+        /* The register is a courtesy, not the game. A failure here is
+           never allowed to interrupt play or raise anything at the
+           player: it goes back in the queue and the next tick retries.
+           The save itself has its own status dot; this does not. */
+        scorePending = true;
+      })
+      .then(function () { scoreBusy = false; });
   }
 
   function pushSave() {
@@ -2750,7 +3026,11 @@ input[type=range]::-moz-range-thumb {
      'account-go', 'account-toggle', 'account-forgot', 'account-email-out',
      'account-sync', 'account-msg-in', 'account-sync-now', 'account-signout',
      'account-new', 'account-new-form', 'account-new-pass', 'account-new-msg',
-     'account-new-go', 'account-new-who', 'log', 'stats', 'reset-btn', 'sound-btn'
+     'account-new-go', 'account-new-who',
+     'register-btn', 'register-sheet', 'register-close', 'board-list', 'board-empty',
+     'board-msg', 'board-anon', 'board-form', 'board-name', 'board-form-msg',
+     'board-go', 'board-mine', 'board-leave', 'board-you',
+     'log', 'stats', 'reset-btn', 'sound-btn'
     ].forEach(function (id) { el[id] = $(id); });
   }
 
@@ -3422,6 +3702,10 @@ input[type=range]::-moz-range-thumb {
     var gain = Math.max(1, Math.ceil(seconds / XP_PER_SEC)) * (home ? 2 : 1);
     var before = standing();
     state.xp += gain;
+    /* Standing moved, so the register is stale. Flagged rather than
+       pushed: the counts this is checked against are written around
+       here too, and the tick reads them once they have all settled. */
+    scorePending = true;
     var after = standing();
     if (after > before) {
       sfxRank();
@@ -3875,6 +4159,10 @@ input[type=range]::-moz-range-thumb {
   function renderAccount() {
     var c = cloud();
     el['account-btn'].hidden = !c;
+    /* No backend configured means no register to read, so the button
+       that opens it goes too. Unlike the account button this one is not
+       conditional on being signed in: anyone may read the register. */
+    el['register-btn'].hidden = !c;
     if (!c) return;
 
     var user = c.user();
@@ -3915,6 +4203,161 @@ input[type=range]::-moz-range-thumb {
     // password still unusable and no way back to the form.
     if (resetting) { resetting = false; renderAccount(); }
     el['account-sheet'].hidden = true;
+  }
+
+  /* ---------------- The register sheet ---------------- */
+
+  function openRegister() {
+    if (!cloud()) return;
+    el['register-sheet'].hidden = false;
+    accountMsg('board-form-msg', '');
+    renderRegisterForm();
+    loadBoard();
+  }
+
+  function closeRegister() { el['register-sheet'].hidden = true; }
+
+  /* Which of the three states the bottom of the sheet is in: signed
+     out, signed in and not listed, or listed. */
+  function renderRegisterForm() {
+    var inn = signedIn();
+    var mine = inn && !!state.harborName;
+    el['board-anon'].hidden = inn;
+    el['board-form'].hidden = !inn;
+    el['board-mine'].hidden = !mine;
+    if (inn) {
+      el['board-name'].value = state.harborName || '';
+      el['board-go'].textContent = mine ? 'Change my name' : 'Join the register';
+    }
+  }
+
+  function loadBoard() {
+    if (!cloud()) return;
+    accountMsg('board-msg', '');
+    cloud().board(25)
+      .then(function (rows) { renderBoard(rows); })
+      .catch(function (err) {
+        el['board-list'].innerHTML = '';
+        el['board-empty'].hidden = true;
+        accountMsg('board-msg', err.message || 'Could not reach the harbor office.', true);
+      });
+  }
+
+  /* One row builder for the board and for the footer beneath it, so
+     the two cannot drift apart. */
+  function boardRow(r, pos, isMe) {
+    var xp = num(r.xp, 0);
+    var li = document.createElement('li');
+    li.className = 'board-row' + (isMe ? ' is-me' : '');
+    /* The counts go on the row's title rather than its face: they are
+       what the standing is checked against, not what the board is
+       about, and four numbers a line makes it unreadable. */
+    if (r.voyages != null) {
+      li.title = num(r.voyages, 0) + ' voyages, ' + num(r.recalled, 0) +
+                 ' home, ' + num(r.sunk, 0) + ' lost. Longest ' +
+                 num(r.longest_trip, 0).toFixed(1) + 's.';
+    }
+
+    var p = document.createElement('span');
+    p.className = 'board-pos';
+    p.textContent = pos == null ? '—' : String(pos);
+
+    var name = document.createElement('span');
+    name.className = 'board-name';
+    // textContent, never innerHTML: this is a name someone else chose.
+    name.textContent = r.display_name;
+
+    var rank = document.createElement('span');
+    rank.className = 'board-rank';
+    rank.textContent = RANKS[Math.min(levelOf(xp), RANKS.length) - 1];
+
+    var score = document.createElement('span');
+    score.className = 'board-xp';
+    score.textContent = xp.toLocaleString();
+
+    li.appendChild(p); li.appendChild(name);
+    li.appendChild(rank); li.appendChild(score);
+    return li;
+  }
+
+  function renderBoard(rows) {
+    var list = el['board-list'];
+    list.innerHTML = '';
+    el['board-empty'].hidden = rows.length > 0;
+    var mine = (state.harborName || '').toLowerCase();
+    var onBoard = false;
+    for (var i = 0; i < rows.length; i++) {
+      var isMe = !!mine && String(rows[i].display_name).toLowerCase() === mine;
+      if (isMe) onBoard = true;
+      list.appendChild(boardRow(rows[i], i + 1, isMe));
+    }
+    renderMyPosition(onBoard);
+  }
+
+  /* Only worth asking the server where you stand when you are not
+     already visible above. Everything here is read from the save except
+     the position itself, so this costs one count query and no rows. */
+  function renderMyPosition(onBoard) {
+    var foot = el['board-you'];
+    foot.innerHTML = '';
+    foot.hidden = true;
+    if (!signedIn() || !state.harborName || onBoard) return;
+    var want = state.harborName;
+    cloud().myPosition(state.xp)
+      .then(function (pos) {
+        // The sheet may have been closed, or the name changed, while
+        // the count was in flight.
+        if (pos == null || state.harborName !== want) return;
+        foot.appendChild(boardRow({ display_name: want, xp: state.xp }, pos, true));
+        foot.hidden = false;
+      })
+      .catch(function () { /* a courtesy line; silence is fine */ });
+  }
+
+  function submitRegister(e) {
+    e.preventDefault();
+    var name = el['board-name'].value.trim();
+    if (name.length < 3) {
+      accountMsg('board-form-msg', 'That is too short — three characters at least.', true);
+      return;
+    }
+    el['board-go'].disabled = true;
+    accountMsg('board-form-msg', 'Signing the register…');
+    var previous = state.harborName;
+    state.harborName = name;
+    cloud().pushScore(scoreFields())
+      .then(function () {
+        save();
+        scorePending = false;
+        accountMsg('board-form-msg', 'Your name is up.');
+        renderRegisterForm();
+        loadBoard();
+      })
+      .catch(function (err) {
+        // Put the old name back: the register refused this one, so the
+        // save must not keep claiming it.
+        state.harborName = previous;
+        accountMsg('board-form-msg', err.message || 'Could not reach the harbor office.', true);
+      })
+      .then(function () { el['board-go'].disabled = false; });
+  }
+
+  function leaveRegister() {
+    if (!signedIn()) return;
+    el['board-leave'].disabled = true;
+    cloud().leaveBoard()
+      .then(function () {
+        state.harborName = '';
+        save();
+        scorePending = false;
+        accountMsg('board-form-msg', 'Your name is off the register.');
+        renderRegisterForm();
+        loadBoard();
+      })
+      .catch(function (err) {
+        accountMsg('board-form-msg', err.message || 'Could not reach the harbor office.', true);
+      })
+      .then(function () { el['board-leave'].disabled = false; });
   }
 
   function setSignUpMode(on) {
@@ -4013,6 +4456,14 @@ input[type=range]::-moz-range-thumb {
       }).then(function () { el['account-new-go'].disabled = false; });
     });
 
+    el['register-btn'].addEventListener('click', function () { sfxClick(); openRegister(); });
+    el['register-close'].addEventListener('click', function () { sfxClick(); closeRegister(); });
+    el['register-sheet'].addEventListener('click', function (e) {
+      if (e.target === el['register-sheet']) closeRegister();
+    });
+    el['board-form'].addEventListener('submit', submitRegister);
+    el['board-leave'].addEventListener('click', function () { sfxClick(); leaveRegister(); });
+
     el['account-btn'].addEventListener('click', function () { sfxClick(); openAccount(); });
     el['account-close'].addEventListener('click', function () { sfxClick(); closeAccount(); });
     el['account-sheet'].addEventListener('click', function (e) {
@@ -4051,6 +4502,7 @@ input[type=range]::-moz-range-thumb {
 
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && !el['account-sheet'].hidden) closeAccount();
+      if (e.key === 'Escape' && !el['register-sheet'].hidden) closeRegister();
     });
   }
 
