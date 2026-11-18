@@ -2265,6 +2265,18 @@ input[type=range]::-moz-range-thumb {
       });
   }
 
+  /* ---------------- Purchases ---------------- */
+
+  /* Ask what this account is owed and collect it. The database marks
+     each row collected in the same statement that returns it, so this
+     can be called as often as we like and will only ever hand over a
+     purchase once. */
+  function claimPurchases() {
+    if (!session) return Promise.resolve([]);
+    return authed('POST', '/rest/v1/rpc/claim_purchases', {})
+      .then(function (rows) { return rows || []; });
+  }
+
   /* Leaving is the other half of opting in: the row goes, and with it
      the name, which somebody else may then take. */
   function leaveBoard() {
@@ -2305,6 +2317,7 @@ input[type=range]::-moz-range-thumb {
     myPosition: myPosition,
     pushScore: pushScore,
     leaveBoard: leaveBoard,
+    claimPurchases: claimPurchases,
     // Exposed so the page can be pointed at a project without editing
     // this file — used by the deploy step and by local testing.
     configure: function (url, key) { CONFIG.url = url || ''; CONFIG.key = key || ''; emit(); }
@@ -3506,36 +3519,182 @@ input[type=range]::-moz-range-thumb {
         balance has to move to an account the server owns.
      --------------------------------------------- */
 
-  var PROVIDER = 'none';   // 'none' | 'appstore' | 'play' | 'stripe'
+  /* Paste the four Payment Link URLs from the Stripe dashboard here and
+     the till opens; leave any of them empty and it stays shut. There is
+     no key in this file and there is not meant to be: a Payment Link is
+     a public URL, the payment page is Stripe's own, and the only secret
+     in the whole arrangement is the webhook signing secret, which lives
+     in the Edge Function's environment where no browser can reach it.
+
+     Test-mode links work exactly the same way and charge test cards, so
+     the whole chain can be proved before any real money moves. Swapping
+     to live links is an edit to this object and nothing else. */
+  var PACK_LINKS = {
+    purse:   'https://buy.stripe.com/14A00j0Uc5Jy7ux1iM4Vy00',   // $0.99
+    chest:   'https://buy.stripe.com/28EeVd8mE9ZOcORe5y4Vy01',   // $4.99
+    hold:    'https://buy.stripe.com/dRmcN5fP62xm5mp5z24Vy02',   // $9.99
+    logbook: 'https://buy.stripe.com/28E14n9qI3Bq2adaTm4Vy03'    // $19.99
+  };
+
+  function packLink(id) {
+    var url = PACK_LINKS[id];
+    return typeof url === 'string' && url.indexOf('https://') === 0 ? url : null;
+  }
+
+  var PROVIDER = 'stripe';   // 'none' | 'appstore' | 'play' | 'stripe'
 
   /* Selling funds is fine here: nothing is ever wagered, so these buy
      provisions and upgrades rather than bankrolling a bet. */
   var PACKS = [
-    { id: 'purse',   name: "Deckhand's Purse",  detail: '$2,500',  price: '$0.99' },
-    { id: 'chest',   name: "Skipper's Chest",   detail: '$15,000', price: '$4.99', tag: 'Popular' },
-    { id: 'hold',    name: "Merchant's Hold",   detail: '$35,000', price: '$9.99', tag: 'Best value' },
-    { id: 'logbook', name: "Captain's Logbook", detail: 'Every ground chartered', price: '$19.99' }
+    { id: 'purse',   name: "Deckhand's Purse",  detail: '$2,500',  price: '$0.99',  grant: { bank: 2500 } },
+    { id: 'chest',   name: "Skipper's Chest",   detail: '$15,000', price: '$4.99',  grant: { bank: 15000 }, tag: 'Popular' },
+    { id: 'hold',    name: "Merchant's Hold",   detail: '$35,000', price: '$9.99',  grant: { bank: 35000 }, tag: 'Best value' },
+    { id: 'logbook', name: "Captain's Logbook", detail: 'Every ground chartered', price: '$19.99', grant: { charters: true } }
   ];
 
 
 
-  function storeAvailable() { return PROVIDER !== 'none'; }
+  /* Open only when there is somewhere to send the buyer AND somebody to
+     send: a purchase is tied to an account, so there is no such thing as
+     buying while signed out. */
+  function storeAvailable() {
+    if (PROVIDER !== 'stripe') return false;
+    for (var k in PACK_LINKS) if (!packLink(k)) return false;
+    return true;
+  }
 
   var storeMsg = '';
 
+  function setStoreMsg(text) {
+    storeMsg = text;
+    var msg = document.getElementById('store-msg');
+    if (msg) msg.textContent = text;
+  }
+
   function buyPack(id) {
+    sfxClick();
     if (!storeAvailable()) {
       // Nothing is charged and nothing is granted. Say so plainly.
-      storeMsg = 'Real-money purchases are not open yet — nothing was charged. They arrive ' +
-        'with the app release, which is also when balances move off this browser onto an account.';
-      var msg = document.getElementById('store-msg');
-      if (msg) msg.textContent = storeMsg;
-      sfxClick();
+      setStoreMsg('Real-money purchases are not open yet — nothing was charged.');
       return;
     }
-    /* Each provider resolves a verified receipt server-side and the server
-       credits the account; the client never grants coins on its own. */
-    throw new Error('purchase provider "' + PROVIDER + '" is not implemented');
+    if (!signedIn()) {
+      /* Not a policy, a mechanism: a purchase is recorded against an
+         account id, and without one there is nothing to record it
+         against and no way to give it back if it goes astray. */
+      setStoreMsg('Sign in from the ledger first — a purchase is tied to your account, not this browser.');
+      return;
+    }
+    var url = packLink(id);
+    if (!url) { setStoreMsg('That pack is not on sale.'); return; }
+
+    /* client_reference_id is how the webhook learns whose account to
+       credit. It is not a secret and not a password: it says who, and
+       Stripe says what was paid. Nothing the browser puts here can
+       change the amount charged. */
+    var sep = url.indexOf('?') >= 0 ? '&' : '?';
+    setStoreMsg('Taking you to Stripe…');
+    save();
+    window.location.href = url + sep + 'client_reference_id=' +
+      encodeURIComponent(cloud().user().id);
+  }
+
+  /* ---------------- Collecting what was paid for ---------------- */
+
+  function applyGrant(packId) {
+    var p = null;
+    for (var i = 0; i < PACKS.length; i++) if (PACKS[i].id === packId) p = PACKS[i];
+    /* 'unknown' reaches here when the webhook saw an amount this build
+       does not sell. Nothing is granted and nothing is lost: the row
+       stays on the books with what was actually paid. */
+    if (!p || !p.grant) return null;
+    if (p.grant.bank) addBank(p.grant.bank);
+    if (p.grant.charters) {
+      for (var j = 0; j < VOYAGES.length; j++) state.chartered[VOYAGES[j].id] = true;
+    }
+    return p;
+  }
+
+  function collectPurchases() {
+    if (!signedIn()) return Promise.resolve(0);
+    return cloud().claimPurchases()
+      .then(function (rows) {
+        if (!rows.length) return 0;
+        var names = [];
+        for (var i = 0; i < rows.length; i++) {
+          var p = applyGrant(rows[i].pack_id);
+          if (p) names.push(p.name);
+        }
+        if (names.length) {
+          save();
+          pushSave();      // straight away: a claim is spent, so the save must survive
+          renderAll();
+          logMsg('Delivered to the quay: ' + names.join(', ') + '. Thank you.', 'gold');
+          setStoreMsg('Thank you — ' + names.join(', ') + ' is aboard.');
+        }
+        return rows.length;
+      })
+      .catch(function () { return 0; });
+  }
+
+  /* Stripe's Payment Link is told to come back to the game with ?paid=1
+     on it. Read once and wiped from the address bar, so a refresh or a
+     shared link does not set the whole thing going again. */
+  function returnedFromCheckout() {
+    var hit = /[?&]paid=1(&|$)/.test(window.location.search);
+    if (hit && window.history && window.history.replaceState) {
+      var clean = window.location.search
+        .replace(/([?&])paid=1(&|$)/, '$1').replace(/[?&]$/, '');
+      window.history.replaceState(null, '',
+        window.location.pathname + clean + window.location.hash);
+    }
+    return hit;
+  }
+
+  /* Stripe sends the buyer back here, and the webhook arrives on its own
+     schedule -- usually first, occasionally not. So a return from
+     checkout waits a little rather than reporting nothing and leaving
+     somebody who has just paid staring at an unchanged bank. */
+  /* Safe to chain straight onto syncAfterSignIn: the "which save?"
+     question is a blocking confirm(), so by the time that promise
+     settles the state is decided. Collecting any earlier could credit a
+     save that adoptRemote is about to throw away -- with the purchase
+     already marked collected, which is the one way to actually lose
+     somebody's money. */
+  /* Single-flight, like the token refresh in cloud.js and for the same
+     reason: boot calls this, and so does the change listener, which
+     fires once the moment it is registered. Two calls are harmless --
+     the database hands a purchase over exactly once however often it is
+     asked -- but the second is a request that can only ever return
+     nothing. */
+  var collectInFlight = null;
+
+  function collectAnythingOwed() {
+    if (collectInFlight) return collectInFlight;
+    var work = returnedFromCheckout() ? collectAfterCheckout() : collectPurchases();
+    collectInFlight = Promise.resolve(work).then(
+      function (n) { collectInFlight = null; return n; },
+      function ()  { collectInFlight = null; }
+    );
+    return collectInFlight;
+  }
+
+  function collectAfterCheckout() {
+    var tries = 0;
+    setStoreMsg('Checking with the harbor office…');
+    return new Promise(function (done) {
+      (function attempt() {
+        collectPurchases().then(function (n) {
+          if (n > 0) return done(n);
+          if (++tries >= 8) {
+            setStoreMsg('Payment received, but it has not reached us yet. It will appear ' +
+                        'on its own — reopen the game in a minute.');
+            return done(0);
+          }
+          setTimeout(attempt, 2500);
+        });
+      })();
+    });
   }
 
   /* ---------------- Livery picker ---------------- */
@@ -5421,12 +5580,14 @@ input[type=range]::-moz-range-thumb {
       window.HarborlightCloud.onChange(function () {
         handleAuthLink();
         renderAccount();
-        if (signedIn() && cloudStatus === 'off' && !resetting) syncAfterSignIn();
+        if (signedIn() && cloudStatus === 'off' && !resetting) {
+          syncAfterSignIn().then(collectAnythingOwed);
+        }
       });
       // A session already in this browser: reconcile before the first
       // voyage, so nobody plays ten minutes into a save that is about
       // to be replaced by the account's.
-      if (signedIn()) syncAfterSignIn();
+      if (signedIn()) syncAfterSignIn().then(collectAnythingOwed);
     }
     // Last chance to get a pending change up before the tab goes.
     window.addEventListener('pagehide', function () {
