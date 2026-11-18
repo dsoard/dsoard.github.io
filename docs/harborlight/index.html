@@ -2246,8 +2246,17 @@ input[type=range]::-moz-range-thumb {
          so a request carrying it would be refused outright. */
       pennant: s.pennant || null
     }, {
-      headers: { 'Prefer': 'resolution=merge-duplicates,return=representation' }
-    }).then(function (rows) { return (rows && rows[0]) || null; })
+      /* return=minimal, NOT representation. Asking for the row back makes
+         PostgREST add RETURNING *, which needs SELECT on every column --
+         including created_at, which no client is granted. The same
+         column grants that keep user_id away from anonymous readers are
+         what make asking for the whole row fail, and the failure is a
+         flat "permission denied for table scores" that says nothing
+         about which column it meant.
+
+         Nothing ever read the row anyway: both callers discard it. */
+      headers: { 'Prefer': 'resolution=merge-duplicates,return=minimal' }
+    }).then(function () { return null; })
       .catch(function (err) { throw registerError(err); });
   }
 
