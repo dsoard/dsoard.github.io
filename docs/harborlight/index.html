@@ -1851,6 +1851,7 @@ input[type=range]::-moz-range-thumb {
     <p>Working her hard and heaving to are <em>standing orders</em> &mdash; a new one replaces the one before it rather than piling on top, so pressing the same button twice never doubles anything. Trimming is a one-off and leaves the standing order alone.</p>
     <p>You start with three calls a voyage and five seconds between them. A ship's bosun from the shipyard raises both, and gets a better result out of every order besides. Spending calls beats hoarding them, and spending them at the right moment beats spending them early.</p>
     <p><strong>Call it home.</strong> Recalling stops the catch growing and banks what she has. The sail home is safe &mdash; the decision is the whole game.</p>
+    <p><strong>The chandler sells two things.</strong> Provisions are paid for out of your bank, with money you earned at sea. Below them are funds bought with real money, which is how you support the game if you want to &mdash; they are in-game funds only, carry no cash value, and nothing you can buy is needed to finish anything. A purchase is tied to your account rather than this browser, so you need to be signed in, and it is delivered the next time the game can reach the harbor office.</p>
     <p><strong>Put your name up if you like.</strong> The harbor register ranks skippers by standing, and the button in the header opens it. Reading it needs nothing; appearing on it needs an account and a name you choose, and you can take your name off again whenever you want. Your standing is posted when a voyage ends &mdash; nothing else about you is, and the name is the only thing other people see, so do not make it your email address.</p>
     <p><strong>Spend on the shipyard.</strong> Everything in it costs money <em>and</em> a rank. Hulls and storm glasses cut risk, sonar fills the hold faster, a larger hold raises the load line, a ship's bosun gets you more out of the crew, and a salvage locker keeps part of the catch afloat when the worst happens &mdash; as long as she is under her marks when she goes.</p>
     <p><strong>Keep your berth.</strong> Without an account the game lives in this browser alone &mdash; clear your site data and the harbor forgets you. Sign in from the header and your bank, standing, gear and charters follow you to any browser, saving in the background every few seconds. The dot on the button is green when your account has your progress and red when it could not reach it. Forgotten passwords are handled by email: the link brings you back here with a box to set a new one.</p>
@@ -1863,7 +1864,11 @@ input[type=range]::-moz-range-thumb {
 <footer class="site-footer">
   <a href="../personal/">&larr; Back to davidsoard.com</a>
   <span class="copyright">&copy; 2026 David Soard. All rights reserved.</span>
-  <span>Progress saves to this browser.</span>
+  <!-- Rewritten by renderAccount to say where progress is actually
+       going. The signed-out wording is the honest default: with no
+       account and no project configured, this browser really is the
+       only place it lives. -->
+  <span id="save-where">Progress saves to this browser.</span>
 </footer>
 
 <script>
@@ -3249,7 +3254,7 @@ input[type=range]::-moz-range-thumb {
      'account-sync', 'account-msg-in', 'account-sync-now', 'account-signout',
      'account-new', 'account-new-form', 'account-new-pass', 'account-new-msg',
      'account-new-go', 'account-new-who',
-     'livery-list',
+     'livery-list', 'save-where',
      'register-btn', 'register-sheet', 'register-close', 'board-list', 'board-empty',
      'board-msg', 'board-anon', 'board-form', 'board-name', 'board-form-msg',
      'board-go', 'board-mine', 'board-leave', 'board-you',
@@ -3807,8 +3812,12 @@ input[type=range]::-moz-range-thumb {
     }
 
     html += '<div class="store-state' + (open ? '' : ' is-closed') + '">' +
-      (open ? 'Purchases available.'
-            : '<strong>Not open yet.</strong> Real-money purchases ship with the mobile release. ' +
+      /* "ship with the mobile release" promised something that never
+         existed: they shipped here, on the web. The closed wording now
+         says only what is true of being closed, which is all it needs
+         to say and all it can promise. */
+      (open ? 'Bought with real money. In-game funds only — no cash value.'
+            : '<strong>Not open yet.</strong> ' +
               'Nothing below charges anything, and no button grants funds.') +
       '</div>';
 
@@ -4603,8 +4612,22 @@ input[type=range]::-moz-range-thumb {
     error:   'Could not reach your account.'
   };
 
+  /* The footer used to assert that progress saves to this browser, full
+     stop. That was true before accounts existed and has been wrong for
+     anybody signed in ever since -- a flat claim in the one place a
+     player looks to find out where their game lives. It now says which
+     of the two is actually happening. */
+  function renderSaveWhere() {
+    var n = el['save-where'];
+    if (!n) return;
+    n.textContent = signedIn()
+      ? 'Progress saves to your account.'
+      : 'Progress saves to this browser.';
+  }
+
   function renderAccount() {
     var c = cloud();
+    renderSaveWhere();
     el['account-btn'].hidden = !c;
     /* No backend configured means no register to read, so the button
        that opens it goes too. Unlike the account button this one is not
