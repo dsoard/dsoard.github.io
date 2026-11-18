@@ -997,6 +997,11 @@ input[type=range]::-moz-range-thumb {
 
 .tabs {
   display: flex;
+  /* Wraps to a second row rather than running off the side. Five tabs
+     no longer fit on a 360px phone, and `flex: 1` cannot save it: a
+     flex item will not shrink below its own text, so the row simply
+     overflowed. Third time narrow widths have caught this project. */
+  flex-wrap: wrap;
   gap: 4px;
   padding: 4px;
   background: var(--surface-2);
@@ -1006,7 +1011,14 @@ input[type=range]::-moz-range-thumb {
 }
 
 .tab {
-  flex: 1;
+  /* auto basis, so each tab asks for its own label's width and the row
+     wraps when they no longer fit; they still share the slack evenly
+     once wrapped. */
+  flex: 1 1 auto;
+  /* Just wide enough to keep LOG from looking like a typo next to its
+     neighbours, and no wider: every extra pixel here is what decided
+     whether five tabs fit the column on a desktop or wrapped. */
+  min-width: 3.1rem;
   padding: 7px 6px;
   font-size: 11px;
   font-weight: 700;
@@ -1409,11 +1421,37 @@ input[type=range]::-moz-range-thumb {
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
+/* Holds the flag, the name and the supporter mark. The truncation moves
+   to the text itself: with the dot as a sibling, ellipsis on the parent
+   would clip the flag rather than the long name. */
 .board-name {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
   font-weight: 600;
+}
+
+.board-name-text {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* A burgee, pointing the way hers does on the water. */
+.board-flag {
+  flex: none;
+  width: 0.6rem;
+  height: 0.6rem;
+  background: var(--flag, var(--muted));
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+}
+
+.board-supporter {
+  flex: none;
+  color: var(--gold);
+  font-size: 0.78rem;
+  line-height: 1;
 }
 .board-rank {
   color: var(--muted);
@@ -1456,6 +1494,84 @@ input[type=range]::-moz-range-thumb {
 @media (max-width: 460px) {
   .board-row { grid-template-columns: 1.6rem minmax(0, 1fr) auto; }
   .board-rank { display: none; }
+}
+
+
+/* ---------------- Livery ---------------- */
+
+.livery-group { margin-bottom: 1.1rem; }
+.livery-group:last-child { margin-bottom: 0; }
+
+.livery-title {
+  margin: 0 0 0.5rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* Wraps rather than scrolls: six swatches fit two rows on a phone and
+   one on a desktop, and a horizontal scroller hides the sets at the end
+   from anyone who does not think to drag it. */
+.livery-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.swatch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  width: 4.1rem;
+  padding: 0.45rem 0.2rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+.swatch:hover:not(:disabled) { border-color: var(--line-strong); color: var(--text); }
+
+.swatch.is-on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.swatch.is-locked,
+.swatch:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* The pair of tones, split corner to corner: the upper half is the
+   mainsail or the hull, the lower the jib or the gunwale. */
+/* No flag: an outline where a colour would be, rather than a chip that
+   looks like it failed to load. */
+.swatch-chip.is-empty {
+  background: none;
+  border-style: dashed;
+  border-color: var(--line-strong);
+}
+
+.swatch-chip {
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, .35);
+  background: linear-gradient(135deg, var(--a, #888) 0 50%, var(--b, #555) 50% 100%);
+}
+
+.swatch-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>
 <!-- Order matters: cloud.js publishes window.HarborlightCloud, which
@@ -1598,6 +1714,7 @@ input[type=range]::-moz-range-thumb {
       <div class="tabs" role="tablist">
         <button class="tab is-active" data-tab="shipyard" role="tab">Shipyard</button>
         <button class="tab" data-tab="log" role="tab">Log</button>
+        <button class="tab" data-tab="livery" role="tab">Livery</button>
         <button class="tab" data-tab="store" role="tab">Chandler</button>
         <button class="tab" data-tab="stats" role="tab">Records</button>
       </div>
@@ -1609,6 +1726,11 @@ input[type=range]::-moz-range-thumb {
 
       <div class="tab-body" data-panel="log">
         <ul id="log" class="log"></ul>
+      </div>
+
+      <div class="tab-body" data-panel="livery">
+        <p class="shipyard-note">Her colours are yours to choose. Nothing here changes how she sails &mdash; she is only better looking.</p>
+        <div id="livery-list" class="livery"></div>
       </div>
 
       <div class="tab-body" data-panel="store">
@@ -2119,7 +2241,10 @@ input[type=range]::-moz-range-thumb {
       voyages: s.voyages,
       recalled: s.recalled,
       sunk: s.sunk,
-      longest_trip: s.longest
+      longest_trip: s.longest,
+      /* supporter is never sent: the role has no grant on that column,
+         so a request carrying it would be refused outright. */
+      pennant: s.pennant || null
     }, {
       headers: { 'Prefer': 'resolution=merge-duplicates,return=representation' }
     }).then(function (rows) { return (rows && rows[0]) || null; })
@@ -2382,6 +2507,65 @@ input[type=range]::-moz-range-thumb {
     }
   ];
 
+  /* ---------------- Livery ----------------
+
+     Her colours. Nothing here touches a number: two slots, each a pair
+     of tones lifted straight out of drawBoat, which used to hard-code
+     them. The boat is about thirty-four pixels across, so only the two
+     largest shapes are worth colouring -- detail finer than this simply
+     does not survive at that size.
+
+     LOCKED is the single switch, the same idea as PROVIDER in the coin
+     store: while it is false every set is free to anyone, which is what
+     makes this worth shipping before there is any way to pay. Flipping
+     it later gates everything without `free: true` and needs no other
+     change here. Cheating a colour harms nobody, so none of this is
+     ever checked anywhere but here. */
+
+  var LIVERY_LOCKED = false;
+
+  var SAILS = [
+    { id: 'linen',   name: 'Linen',      free: true, main: '#f0f4f8', jib: '#d9e4ee' },
+    { id: 'tanbark', name: 'Tanbark',    free: true, main: '#c98a5a', jib: '#b4764a' },
+    { id: 'storm',   name: 'Storm',                   main: '#9fb0c0', jib: '#8699aa' },
+    { id: 'ochre',   name: 'Ochre',                  main: '#e0b56a', jib: '#c99d55' },
+    { id: 'crimson', name: 'Crimson',                main: '#c2544e', jib: '#a8453f' },
+    { id: 'jade',    name: 'Jade',                   main: '#6fb7a2', jib: '#5a9d8a' }
+  ];
+
+  var HULLS = [
+    { id: 'oak',       name: 'Oak',        free: true, body: '#8a5a34', trim: '#6d4527' },
+    { id: 'pitch',     name: 'Pitch',      free: true, body: '#2b2f33', trim: '#1d2125' },
+    { id: 'verdigris', name: 'Verdigris',              body: '#4d7f72', trim: '#3b6459' },
+    { id: 'carmine',   name: 'Carmine',                body: '#8c3b36', trim: '#6e2d29' },
+    { id: 'bone',      name: 'Bone',                   body: '#d9cdb6', trim: '#b9ad96' },
+    { id: 'slate',     name: 'Slate',                  body: '#4a6079', trim: '#3a4c60' }
+  ];
+
+  /* The flag at the masthead. The one slot that changes her OUTLINE
+     rather than recolouring a shape she already had, which is why it
+     reads at a glance where a hull colour does not -- and why there are
+     two silhouettes rather than six colours of one. It is also the only
+     cosmetic anyone else sees, echoed as a dot beside your name on the
+     register. */
+  var PENNANTS = [
+    { id: 'none',   name: 'None',   free: true, shape: null },
+    { id: 'harbor', name: 'Harbor', free: true, shape: 'burgee',      color: '#f2c14e' },
+    { id: 'signal', name: 'Signal',             shape: 'burgee',      color: '#c2544e' },
+    { id: 'parley', name: 'Parley',             shape: 'burgee',      color: '#eef3f8' },
+    { id: 'pilot',  name: 'Pilot',              shape: 'swallowtail', color: '#4fd1c5' },
+    { id: 'night',  name: 'Night',              shape: 'swallowtail', color: '#8a7fd4' }
+  ];
+
+  function liveryFind(list, id) {
+    for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
+    return list[0];   // the default is always first
+  }
+  function sailSet()    { return liveryFind(SAILS, state.cosmetics.sails); }
+  function pennantSet() { return liveryFind(PENNANTS, state.cosmetics.pennant); }
+  function hullSet() { return liveryFind(HULLS, state.cosmetics.hull); }
+  function liveryOwned(set) { return !LIVERY_LOCKED || !!set.free; }
+
   /* ---------------- Random events ---------------- */
 
   var EVENTS = [
@@ -2597,6 +2781,7 @@ input[type=range]::-moz-range-thumb {
       upgrades: { hull: 0, glass: 0, sonar: 0, hold: 0, insurance: 0, crew: 0, bosun: 0, beacon: 0 },
       xp: 0,
       curve: CURVE_VER,   // which standing ladder this save's xp is on
+      cosmetics: { sails: 'linen', hull: 'oak', pennant: 'none' },
       // The name on the harbor register, '' when not on it. Kept in the
       // save so it follows the player to another browser along with
       // everything else.
@@ -2638,6 +2823,20 @@ input[type=range]::-moz-range-thumb {
           s.autoRecall = saved.autoRecall != null ? num(saved.autoRecall, null) : null;
           if (Array.isArray(saved.log)) s.log = saved.log.slice(-60);
           s.harborName = typeof saved.harborName === 'string' ? saved.harborName : '';
+          /* Checked against the known sets rather than trusted. An id
+             that no longer exists -- a renamed set, a hand-edited save --
+             would otherwise reach drawBoat and paint with undefined. */
+          if (saved.cosmetics) {
+            if (liveryFind(SAILS, saved.cosmetics.sails).id === saved.cosmetics.sails) {
+              s.cosmetics.sails = saved.cosmetics.sails;
+            }
+            if (liveryFind(HULLS, saved.cosmetics.hull).id === saved.cosmetics.hull) {
+              s.cosmetics.hull = saved.cosmetics.hull;
+            }
+            if (liveryFind(PENNANTS, saved.cosmetics.pennant).id === saved.cosmetics.pennant) {
+              s.cosmetics.pennant = saved.cosmetics.pennant;
+            }
+          }
           s.xp = Math.max(0, num(saved.xp, 0));
           if (saved.xp == null) backfillStanding(s, saved);
           else if (num(saved.curve, 1) < CURVE_VER) s.xp = remapStanding(s.xp);
@@ -2727,7 +2926,8 @@ input[type=range]::-moz-range-thumb {
       voyages: st.voyages,
       recalled: st.recalled,
       sunk: st.sunk,
-      longest: Math.round(st.longestTrip * 10) / 10
+      longest: Math.round(st.longestTrip * 10) / 10,
+      pennant: state.cosmetics.pennant === 'none' ? null : state.cosmetics.pennant
     };
   }
 
@@ -3027,6 +3227,7 @@ input[type=range]::-moz-range-thumb {
      'account-sync', 'account-msg-in', 'account-sync-now', 'account-signout',
      'account-new', 'account-new-form', 'account-new-pass', 'account-new-msg',
      'account-new-go', 'account-new-who',
+     'livery-list',
      'register-btn', 'register-sheet', 'register-close', 'board-list', 'board-empty',
      'board-msg', 'board-anon', 'board-form', 'board-name', 'board-form-msg',
      'board-go', 'board-mine', 'board-leave', 'board-you',
@@ -3282,6 +3483,7 @@ input[type=range]::-moz-range-thumb {
     renderCost();
     renderUpgrades();
     renderStats();
+    renderLivery();
     renderStore();
   }
 
@@ -3334,6 +3536,83 @@ input[type=range]::-moz-range-thumb {
     /* Each provider resolves a verified receipt server-side and the server
        credits the account; the client never grants coins on its own. */
     throw new Error('purchase provider "' + PROVIDER + '" is not implemented');
+  }
+
+  /* ---------------- Livery picker ---------------- */
+
+  function liveryGroup(title, kind, list, chosen, tones) {
+    var wrap = document.createElement('div');
+    wrap.className = 'livery-group';
+
+    var h = document.createElement('h3');
+    h.className = 'livery-title';
+    h.textContent = title;
+    wrap.appendChild(h);
+
+    var row = document.createElement('div');
+    row.className = 'livery-row';
+    for (var i = 0; i < list.length; i++) {
+      var set = list[i];
+      var on = set.id === chosen;
+      var owned = liveryOwned(set);
+      var t = tones(set);
+
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'swatch' + (on ? ' is-on' : '') + (owned ? '' : ' is-locked');
+      b.dataset.kind = kind;
+      b.dataset.id = set.id;
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      b.title = set.name + (owned ? '' : ' — not yours yet');
+      if (!owned) b.disabled = true;
+
+      /* Both tones of the pair, split across the chip, because the
+         second one is the gunwale or the jib and you want to see what
+         you are actually choosing. */
+      var chip = document.createElement('span');
+      chip.className = 'swatch-chip' + (t ? '' : ' is-empty');
+      if (t) {
+        chip.style.setProperty('--a', t[0]);
+        chip.style.setProperty('--b', t[1]);
+      }
+
+      var nm = document.createElement('span');
+      nm.className = 'swatch-name';
+      nm.textContent = set.name;
+
+      b.appendChild(chip);
+      b.appendChild(nm);
+      row.appendChild(b);
+    }
+    wrap.appendChild(row);
+    return wrap;
+  }
+
+  function renderLivery() {
+    var host = el['livery-list'];
+    if (!host) return;
+    host.innerHTML = '';
+    host.appendChild(liveryGroup('Sails', 'sails', SAILS, state.cosmetics.sails,
+      function (set) { return [set.main, set.jib]; }));
+    host.appendChild(liveryGroup('Hull', 'hull', HULLS, state.cosmetics.hull,
+      function (set) { return [set.body, set.trim]; }));
+    host.appendChild(liveryGroup('Pennant', 'pennant', PENNANTS, state.cosmetics.pennant,
+      function (set) { return set.shape ? [set.color, set.color] : null; }));
+  }
+
+  function chooseLivery(kind, id) {
+    var list = kind === 'sails' ? SAILS : kind === 'hull' ? HULLS : PENNANTS;
+    var set = liveryFind(list, id);
+    if (!liveryOwned(set) || state.cosmetics[kind] === set.id) return;
+    state.cosmetics[kind] = set.id;
+    save();
+    sfxClick();
+    renderLivery();
+    /* The flag is the one cosmetic other people see, so a change to it
+       is worth posting. The others never leave this browser. */
+    if (kind === 'pennant' && signedIn() && state.harborName) scorePending = true;
+    /* The canvas redraws itself every frame, so she is already wearing
+       it by the time the swatch finishes highlighting. */
   }
 
   function renderStore() {
@@ -4264,8 +4543,37 @@ input[type=range]::-moz-range-thumb {
 
     var name = document.createElement('span');
     name.className = 'board-name';
+
+    /* Their flag, if they fly one. liveryFind falls back to the first
+       entry, so comparing ids afterwards is what distinguishes "flies
+       none" from "flies something this build has never heard of" -- an
+       older client, a hand-edited row. Either way: no dot, no blank. */
+    var flag = r.pennant ? liveryFind(PENNANTS, r.pennant) : null;
+    if (flag && flag.shape && flag.id === r.pennant) {
+      var dot = document.createElement('span');
+      dot.className = 'board-flag';
+      dot.style.setProperty('--flag', flag.color);
+      dot.title = flag.name;
+      name.appendChild(dot);
+    }
+
+    var text = document.createElement('span');
+    text.className = 'board-name-text';
     // textContent, never innerHTML: this is a name someone else chose.
-    name.textContent = r.display_name;
+    text.textContent = r.display_name;
+    name.appendChild(text);
+
+    /* Nothing can set this yet -- the column is not in any client's
+       grants and no webhook exists to write it -- so this branch is
+       dead until there is a way to contribute. It is here so that when
+       there is, nothing in the page has to change. */
+    if (r.supporter) {
+      var mark = document.createElement('span');
+      mark.className = 'board-supporter';
+      mark.textContent = '\u2726';
+      mark.title = 'Supported Harborlight';
+      name.appendChild(mark);
+    }
 
     var rank = document.createElement('span');
     rank.className = 'board-rank';
@@ -4308,7 +4616,15 @@ input[type=range]::-moz-range-thumb {
         // The sheet may have been closed, or the name changed, while
         // the count was in flight.
         if (pos == null || state.harborName !== want) return;
-        foot.appendChild(boardRow({ display_name: want, xp: state.xp }, pos, true));
+        /* The flag comes from this browser; supporter cannot, because
+           the only copy of it is on a row the board did not return --
+           that is precisely why this footer exists. Left off rather
+           than guessed at. */
+        foot.appendChild(boardRow({
+          display_name: want,
+          xp: state.xp,
+          pennant: state.cosmetics.pennant === 'none' ? null : state.cosmetics.pennant
+        }, pos, true));
         foot.hidden = false;
       })
       .catch(function () { /* a courtesy line; silence is fine */ });
@@ -4454,6 +4770,11 @@ input[type=range]::-moz-range-thumb {
       }).catch(function (err) {
         accountMsg('account-new-msg', err.message || 'Could not set that password.', true);
       }).then(function () { el['account-new-go'].disabled = false; });
+    });
+
+    el['livery-list'].addEventListener('click', function (e) {
+      var b = e.target && e.target.closest ? e.target.closest('.swatch') : null;
+      if (b && b.dataset.kind) chooseLivery(b.dataset.kind, b.dataset.id);
     });
 
     el['register-btn'].addEventListener('click', function () { sfxClick(); openRegister(); });
@@ -4761,8 +5082,28 @@ input[type=range]::-moz-range-thumb {
     ctx.lineTo(0, -34);
     ctx.stroke();
 
+    // pennant at the masthead
+    var flag = pennantSet();
+    if (flag.shape) {
+      ctx.fillStyle = flag.color;
+      ctx.beginPath();
+      ctx.moveTo(0.8, -34);
+      if (flag.shape === 'swallowtail') {
+        /* Notched, so the two flags differ in outline and not only in
+           colour -- at this size a silhouette is most of what carries. */
+        ctx.lineTo(10.5, -33.2);
+        ctx.lineTo(7.2, -31.4);
+        ctx.lineTo(10.5, -29.6);
+      } else {
+        ctx.lineTo(10.5, -31.4);
+      }
+      ctx.lineTo(0.8, -29);
+      ctx.closePath();
+      ctx.fill();
+    }
+
     // mainsail
-    ctx.fillStyle = '#f0f4f8';
+    ctx.fillStyle = sailSet().main;
     ctx.beginPath();
     ctx.moveTo(1.5, -33);
     ctx.quadraticCurveTo(16, -20, 12, -4);
@@ -4771,7 +5112,7 @@ input[type=range]::-moz-range-thumb {
     ctx.fill();
 
     // jib
-    ctx.fillStyle = '#d9e4ee';
+    ctx.fillStyle = sailSet().jib;
     ctx.beginPath();
     ctx.moveTo(-1.5, -31);
     ctx.quadraticCurveTo(-12, -16, -11, -4);
@@ -4780,14 +5121,14 @@ input[type=range]::-moz-range-thumb {
     ctx.fill();
 
     // hull
-    ctx.fillStyle = '#8a5a34';
+    ctx.fillStyle = hullSet().body;
     ctx.beginPath();
     ctx.moveTo(-17, -3);
     ctx.lineTo(17, -3);
     ctx.quadraticCurveTo(12, 7, -11, 7);
     ctx.closePath();
     ctx.fill();
-    ctx.fillStyle = '#6d4527';
+    ctx.fillStyle = hullSet().trim;
     ctx.fillRect(-17, -3, 34, 2);
 
     // deck lantern while working
