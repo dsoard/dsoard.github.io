@@ -1278,3 +1278,17 @@ body.consulting .page-hero { max-width: 860px; }
 
   .cta-band .solid-button { width: 100%; text-align: center; }
 }
+
+/* Footer support (donation) link */
+footer .footer-sep { margin: 0 6px; opacity: .6; }
+footer .footer-support {
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--line);
+}
+footer .footer-support:hover,
+footer .footer-support:focus-visible {
+  color: var(--accent);
+  text-decoration-color: currentColor;
+}
