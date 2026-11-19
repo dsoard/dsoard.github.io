@@ -1249,6 +1249,13 @@ body.consulting .page-hero { max-width: 860px; }
     var(--surface);
 }
 
+.cta-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
 .cta-band h2 {
   margin: 0 0 10px;
   font-size: clamp(26px, 3.4vw, 38px);
@@ -1276,6 +1283,7 @@ body.consulting .page-hero { max-width: 860px; }
 
   .step-list li { padding-left: 52px; }
 
+  .cta-actions { width: 100%; }
   .cta-band .solid-button { width: 100%; text-align: center; }
 }
 
